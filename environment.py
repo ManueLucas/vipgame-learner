@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import pygame
 
 # Define actions for movement in the grid
 ACTIONS = {
@@ -20,12 +21,18 @@ class VipGame(gym.Env):
         self.grid_height, self.grid_width = self.grid.shape
         self.max_timesteps = max_timesteps
         self.timesteps_elapsed = 0
-
-        # Initialize positions of agents (attacker, defender, VIP)
-        self.attacker_pos = None
+        self.attacker_defender_action_space = 8
+        self.vip_action_space = 4
+        
+        # Initialize positions of agents (attacker, defender, VIP) (these are tuples of row, column)
+        self.attacker_pos = None 
         self.defender_pos = None
         self.vip_pos = None
-
+        
+        # Pygame initialization flag
+        self.pygame_initialized = False
+        self.screen = None
+        
         # Find and set the initial positions of agents
         self._initialize_positions()
 
@@ -77,7 +84,7 @@ class VipGame(gym.Env):
         self.vip_pos, reward = self._move_agent(self.vip_pos, action, moveset)
         return reward
 
-    def step(self, actions):
+    def step(self, actions): #we expect a tuple of 3 actions, one for each agent
         # Perform actions for each agent (attacker, defender, VIP)
         attacker_action, defender_action, vip_action = actions
 
@@ -92,27 +99,45 @@ class VipGame(gym.Env):
         done = self.timesteps_elapsed >= self.max_timesteps
 
         return (self.grid, attacker_reward, defender_reward, vip_reward), done
-
+    def line_of_sight(self, agent_positions):
+        #TODO: take multiple agent positions, reveal the map in their lines of sight and return the grid according to their team's lines of sight. -1: unseen tile, 0: seen tile,
+        return self.grid
+        
     def reset(self):
         # Reset the environment to its initial state
         self.timesteps_elapsed = 0
         self._initialize_positions()
         return self.grid
 
-    def render(self):
-        # Render the current state of the grid
+    def render(self, cell_size=20):
+        # Render the current state of the grid using Pygame
+        if not self.pygame_initialized:
+            # Initialize Pygame if not already initialized
+            pygame.init()
+            self.screen = pygame.display.set_mode((self.grid_width * cell_size, self.grid_height * cell_size))
+            pygame.display.set_caption('VIP Game')
+            self.pygame_initialized = True
+
+        # Clear the screen
+        self.screen.fill((0, 0, 0))
+
+        # Draw the grid
         for i in range(self.grid_height):
-            row = ''
             for j in range(self.grid_width):
+                # Determine the color for each cell
                 if (i, j) == self.vip_pos:
-                    row += 'V '  # VIP
+                    color = (0, 255, 0)  # VIP - Green
                 elif (i, j) == self.defender_pos:
-                    row += 'D '  # Defender
+                    color = (0, 0, 255)  # Defender - Blue
                 elif (i, j) == self.attacker_pos:
-                    row += 'A '  # Attacker
+                    color = (255, 0, 0)  # Attacker - Red
                 elif self.grid[i, j] == 1:
-                    row += '# '  # Wall
+                    color = (128, 128, 128)  # Wall - Gray
                 else:
-                    row += '. '  # Empty space
-            print(row)
-        print()
+                    color = (200, 200, 200)  # Empty space - Light gray
+
+                # Draw the cell
+                pygame.draw.rect(self.screen, color, pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size))
+
+        # Update the display
+        pygame.display.flip()
