@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 import pygame
+import collections
 
 # Define actions for movement in the grid
 ACTIONS = {
@@ -99,9 +100,29 @@ class VipGame(gym.Env):
         done = self.timesteps_elapsed >= self.max_timesteps
 
         return (self.grid, attacker_reward, defender_reward, vip_reward), done
+    
     def line_of_sight(self, agent_positions):
         #TODO: take multiple agent positions, reveal the map in their lines of sight and return the grid according to their team's lines of sight. -1: unseen tile, 0: seen tile,
-        return self.grid
+        agent_view = np.where(self.grid == 0, -1, self.grid)
+
+        for position in agent_positions:
+            for delta in ACTIONS.values():
+                current_position = position
+                
+                while True:
+                    # new position in chosen direction
+                    new_position = (current_position[0] + delta[0], current_position[1] + delta[1])
+
+                    # Collision check to ensure vision stays within grid bounds and avoids walls
+                    if (0 <= new_position[0] < self.grid_height and
+                            0 <= new_position[1] < self.grid_width and
+                            self.grid[new_position] != 1):  # Avoid walls
+                        agent_view[new_position] = 0  # Successful move, mark as seen
+                        current_position = new_position
+                    else:
+                        break
+        return agent_view
+
         
     def reset(self):
         # Reset the environment to its initial state
@@ -132,12 +153,59 @@ class VipGame(gym.Env):
                 elif (i, j) == self.attacker_pos:
                     color = (255, 0, 0)  # Attacker - Red
                 elif self.grid[i, j] == 1:
-                    color = (128, 128, 128)  # Wall - Gray
+                    color = (0, 0, 0)  # Wall - Gray
                 else:
-                    color = (200, 200, 200)  # Empty space - Light gray
+                    color = (150, 150, 150)  # Empty space - Light gray
 
                 # Draw the cell
                 pygame.draw.rect(self.screen, color, pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size))
+                pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size), 1)  # Draw borders
 
         # Update the display
         pygame.display.flip()
+
+    def render_line_of_sight(self, agent_view, cell_size=20):
+        if not self.pygame_initialized:
+            # Initialize Pygame if not already initialized
+            pygame.init()
+            self.screen = pygame.display.set_mode((self.grid_width * cell_size, self.grid_height * cell_size))
+            pygame.display.set_caption('VIP Game with Line of Sight')
+            self.pygame_initialized = True
+
+        running = True
+        while running:
+            # Event handling
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:  # Handle window close event
+                    running = False
+
+            # Clear the screen
+            self.screen.fill((0, 0, 0))
+
+            # Render the grid with line of sight differentiation
+            for i in range(self.grid_height):
+                for j in range(self.grid_width):
+                    # Determine the color for each cell
+                    if (i, j) == self.vip_pos:
+                        color = (0, 255, 0)  # VIP - Green
+                    elif (i, j) == self.defender_pos:
+                        color = (0, 0, 255)  # Defender - Blue
+                    elif (i, j) == self.attacker_pos:
+                        color = (255, 0, 0)  # Attacker - Red
+                    elif self.grid[i, j] == 1:
+                        color = (0, 0, 0)  # Wall - Gray
+                    else:
+                        # Set color based on line of sight status
+                        if agent_view[i, j] == 0:
+                            color = (255, 255, 255)  # Seen tile - Light gray
+                        else:
+                            color = (150, 150, 150)  # Unseen tile - Dark gray
+
+                    # Draw the cell with borders
+                    pygame.draw.rect(self.screen, color, pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size))
+                    pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size), 1)  # Draw borders
+
+            # Update the display
+            pygame.display.flip()
+
+        pygame.quit()
