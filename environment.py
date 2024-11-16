@@ -21,7 +21,7 @@ WALL = 1
 VIP = 2
 DEFENDER = 3
 ATTACKER = 4
-SELF = 5 
+SELF = 5
   
 
 class VipGame(gym.Env):
@@ -32,10 +32,15 @@ class VipGame(gym.Env):
         self.grid_height, self.grid_width = self.grid.shape
         self.max_timesteps = max_timesteps
         self.timesteps_elapsed = 0
+        
         self.attacker_defender_action_space = 8
         self.vip_action_space = 4
+        
         self.attackerside_collision_set = [WALL, ATTACKER]
         self.defenderside_collision_set = [WALL, DEFENDER, VIP]
+        
+        self.attacker_kill_set = [DEFENDER, VIP]
+        self.defender_kill_set = [ATTACKER]
         
         self.num_cell_types = 7  # Number of cell types (-1, 0, 1, 2, 3, 4, 5)
 
@@ -62,14 +67,14 @@ class VipGame(gym.Env):
         # Loop through the grid to find initial positions of agents
         for i in range(self.grid_height):
             for j in range(self.grid_width):
-                if self.grid[i, j] == 2:
+                if self.grid[i, j] == VIP:
                     self.vip_positions.append((i, j))  # VIP position
-                elif self.grid[i, j] == 3:
+                elif self.grid[i, j] == DEFENDER:
                     self.defender_positions.append((i, j))  # Defender position
-                elif self.grid[i, j] == 4:
+                elif self.grid[i, j] == ATTACKER:
                     self.attacker_positions.append((i, j))  # Attacker position
 
-    def _move_agent(self, position, action, moveset, collisionset):
+    def _move_agent(self, position, action, moveset, collisionset, killset):
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
             return position, -1  # Invalid action, negative reward
@@ -79,52 +84,56 @@ class VipGame(gym.Env):
         new_position = (position[0] + delta[0], position[1] + delta[1])
 
         # Collision check to ensure the agent stays within grid bounds and avoids walls
-        if (0 <= new_position[0] < self.grid_height and
-                0 <= new_position[1] < self.grid_width and
-                self.grid[new_position] not in collisionset):  # disallow collision with same team and walls
-            self.grid[new_position] = self.grid[position]
-            self.grid[position] = 0  # Reset the current position to empty
+        if (0 <= new_position[0] < self.grid_height and 0 <= new_position[1] < self.grid_width):  # disallow collision with same team and walls
+            if (self.grid[new_position] in killset):
+                self.grid[new_position] = self.grid[position]
+                self.grid[position] = 0
+                return new_position, 1
             
-            return new_position, 0  # Successful move, neutral reward
-        return position, -1  # Collision, negative reward
+            if (self.grid[new_position] not in collisionset):
+                self.grid[new_position] = self.grid[position]
+                self.grid[position] = 0
+                return new_position, 0  # Successful move, neutral reward
+
+        return position, -1  # Collision or out of bounds, negative reward
 
     def attacker_move(self, action, agent_id):
         # Attacker has access to the full moveset (all 8 directions)
         moveset = list(ACTIONS.values())
         # Update attacker position and get reward for the move
-        self.attacker_positions[agent_id], reward = self._move_agent(self.attacker_positions[agent_id], action, moveset, self.attackerside_collision_set)
+        self.attacker_positions[agent_id], reward = self._move_agent(self.attacker_positions[agent_id], action, moveset, self.attackerside_collision_set, self.attacker_kill_set)
         return reward
 
     def defender_move(self, action, agent_id): # we can merge the attacker and defender move functions into one later
         # Defender has access to the full moveset (all 8 directions)
         moveset = list(ACTIONS.values())
         # Update defender position and get reward for the move
-        self.defender_positions[agent_id], reward = self._move_agent(self.defender_positions[agent_id], action, moveset, self.defenderside_collision_set)
+        self.defender_positions[agent_id], reward = self._move_agent(self.defender_positions[agent_id], action, moveset, self.defenderside_collision_set, self.defender_kill_set)
         return reward
 
     def vip_move(self, action, agent_id):
         # VIP has a limited moveset (up, down, left, right)
         moveset = [ACTIONS['UP'], ACTIONS['DOWN'], ACTIONS['LEFT'], ACTIONS['RIGHT']]
         # Update VIP position and get reward for the move
-        self.vip_positions[agent_id], reward = self._move_agent(self.vip_positions[agent_id], action, moveset, self.defenderside_collision_set)
+        self.vip_positions[agent_id], reward = self._move_agent(self.vip_positions[agent_id], action, moveset, self.defenderside_collision_set, [])
         return reward
 
     def step(self, actions): #we expect a tuple of 3 lists of actions, one for each team
         # Perform actions for each agent (attacker, defender, VIP)
         attacker_actions, defender_actions, vip_actions = actions
         
-        attacker_reward = 0
-        defender_reward = 0
-        vip_reward = 0
+        attacker_reward = []
+        defender_reward = []
+        vip_reward = []
         # Execute each agent's move and get their respective rewards
         for i, attacker_action in enumerate(attacker_actions):
-            attacker_reward += self.attacker_move(attacker_action, i)
+            attacker_reward.append(self.attacker_move(attacker_action, i))
             
         for i, defender_action in enumerate(defender_actions):
-            defender_reward += self.defender_move(defender_action, i)
+            defender_reward.append(self.defender_move(defender_action, i))
             
         for i, vip_action in enumerate(vip_actions):  
-            vip_reward += self.vip_move(vip_action, i)
+            vip_reward.append(self.vip_move(vip_action, i))
 
         # Increment the timestep counter
         self.timesteps_elapsed += 1
