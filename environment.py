@@ -130,14 +130,18 @@ class VipGame(gym.Env):
         self.timesteps_elapsed += 1
         # Check if the maximum number of timesteps has been reached
         done = self.timesteps_elapsed >= self.max_timesteps
-
-        return (self.grid, attacker_reward, defender_reward, vip_reward), done
+        
+        defenderside_vision = self.line_of_sight(self.defender_positions + self.vip_positions)
+        attackerside_vision = self.line_of_sight(self.attacker_positions)
+        return self.grid, (defenderside_vision, attackerside_vision), (defender_reward, attacker_reward, vip_reward), (self.defender_positions, self.attacker_positions, self.vip_positions), done
     
     def line_of_sight(self, agent_positions):
         #TODO: take multiple agent positions, reveal the map in their lines of sight and return the grid according to their team's lines of sight. -1: unseen tile, 0: seen tile,
-        agent_view = np.where(self.grid == 0, -1, self.grid)
+        agent_view = np.where(self.grid != 1, -1, self.grid)
+        
 
         for position in agent_positions:
+            agent_view[position] = self.grid[position]  # reveal where they are standing
             for delta in ACTIONS.values():
                 current_position = position
                 
@@ -149,18 +153,18 @@ class VipGame(gym.Env):
                     if (0 <= new_position[0] < self.grid_height and
                             0 <= new_position[1] < self.grid_width and
                             self.grid[new_position] != 1):  # Avoid walls
-                        agent_view[new_position] = 0  # Successful move, mark as seen
+                        agent_view[new_position] = self.grid[new_position]  # Successful move, mark as seen
                         current_position = new_position
                     else:
                         break
         return agent_view
 
-        
     def reset(self):
         # Reset the environment to its initial state
         self.timesteps_elapsed = 0
         self._initialize_positions()
         return self.grid
+            
 
     def render(self, cell_size=20):
         # Render the current state of the grid using Pygame
@@ -178,13 +182,13 @@ class VipGame(gym.Env):
         for i in range(self.grid_height):
             for j in range(self.grid_width):
                 # Determine the color for each cell
-                if self.grid[i,j] == 2:
+                if self.grid[i,j] == VIP:
                     color = (0, 255, 0)  # VIP - Green
-                elif self.grid[i,j] == 3:
+                elif self.grid[i,j] == DEFENDER:
                     color = (0, 0, 255)  # Defender - Blue
-                elif self.grid[i,j] == 4:
+                elif self.grid[i,j] == ATTACKER:
                     color = (255, 0, 0)  # Attacker - Red
-                elif self.grid[i, j] == 1:
+                elif self.grid[i, j] == WALL:
                     color = (0, 0, 0)  # Wall - Gray
                 else:
                     color = (150, 150, 150)  # Empty space - Light gray
@@ -195,14 +199,11 @@ class VipGame(gym.Env):
 
         # Update the display
         pygame.display.flip()
-
+        
     def render_line_of_sight(self, agent_view, cell_size=20):
-        if not self.pygame_initialized:
-            # Initialize Pygame if not already initialized
-            pygame.init()
-            self.screen = pygame.display.set_mode((self.grid_width * cell_size, self.grid_height * cell_size))
-            pygame.display.set_caption('VIP Game with Line of Sight')
-            self.pygame_initialized = True
+        pygame.init()
+        los_screen = pygame.display.set_mode((self.grid_width * cell_size, self.grid_height * cell_size))
+        pygame.display.set_caption('VIP Game with Line of Sight')
 
         running = True
         while running:
@@ -212,30 +213,30 @@ class VipGame(gym.Env):
                     running = False
 
             # Clear the screen
-            self.screen.fill((0, 0, 0))
+            los_screen.fill((0, 0, 0))
 
             # Render the grid with line of sight differentiation
             for i in range(self.grid_height):
                 for j in range(self.grid_width):
                     # Determine the color for each cell
-                    if (i, j) == self.vip_positions:
+                    if agent_view[i, j] == VIP:
                         color = (0, 255, 0)  # VIP - Green
-                    elif (i, j) == self.defender_positions:
+                    elif agent_view[i, j] == DEFENDER:
                         color = (0, 0, 255)  # Defender - Blue
-                    elif (i, j) == self.attacker_positions:
+                    elif agent_view[i, j] == ATTACKER:
                         color = (255, 0, 0)  # Attacker - Red
-                    elif self.grid[i, j] == 1:
+                    elif agent_view[i, j] == WALL:
                         color = (0, 0, 0)  # Wall - Gray
+                    elif agent_view[i, j] == SELF:
+                        color = (255, 255, 0)  # Self - Yellow
+                    elif agent_view[i, j] == OPEN:
+                        color = (255, 255, 255)  # Empty space - Light gray
                     else:
-                        # Set color based on line of sight status
-                        if agent_view[i, j] == 0:
-                            color = (255, 255, 255)  # Seen tile - Light gray
-                        else:
-                            color = (150, 150, 150)  # Unseen tile - Dark gray
+                        color = (150, 150, 150)  # Unseen tile - Dark gray
 
                     # Draw the cell with borders
-                    pygame.draw.rect(self.screen, color, pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size))
-                    pygame.draw.rect(self.screen, (0, 0, 0), pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size), 1)  # Draw borders
+                    pygame.draw.rect(los_screen, color, pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size))
+                    pygame.draw.rect(los_screen, (0, 0, 0), pygame.Rect(j * cell_size, i * cell_size, cell_size, cell_size), 1)  # Draw borders
 
             # Update the display
             pygame.display.flip()

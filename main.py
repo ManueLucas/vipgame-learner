@@ -2,6 +2,13 @@ import environment
 import numpy as np
 import random
 import time
+import pygame
+
+
+def individual_state(state, position):
+    state = state.copy()
+    state[position] = 5
+    return state
 
 if(__name__ == "__main__"):
     grid_map = np.loadtxt("map_presets/grid.csv", delimiter=",")
@@ -14,20 +21,20 @@ if(__name__ == "__main__"):
     number_of_vips = 1    
     while not done:
         attacker_actions = [random.randint(0, env.attacker_defender_action_space - 1) for _ in range(number_of_attackers)]
-        print(f'attacker actions: {attacker_actions}')
         defender_actions = [random.randint(0, env.attacker_defender_action_space - 1) for _ in range(number_of_defenders)]
         vip_actions = [random.randint(0, env.vip_action_space - 1) for _ in range(number_of_vips)]
         total_actions = [attacker_actions, defender_actions, vip_actions]
         
-        state_reward, done = env.step(total_actions)
-        vip_line_of_sight = env.line_of_sight(env.vip_positions)
-        defender_line_of_sight = env.line_of_sight(env.defender_positions)
-        attacker_line_of_sight = env.line_of_sight(env.attacker_positions)
+        fully_visible_state, team_states, team_rewards, team_positions, done = env.step(total_actions) #fully_visible is a single state, team_states is a list of states, team_rewards is a list of rewards, team_positions is a list of list of tuples, done is a boolean
         env.render()
         time.sleep(0.05)  # Wait for 100ms
 
     # env.render_line_of_sight(vip_line_of_sight)
     # env.render_line_of_sight(defender_line_of_sight)
-    env.render_line_of_sight(attacker_line_of_sight)
+
+    env.render_line_of_sight(team_states[0])
+    env.render_line_of_sight(team_states[1])
+    env.render_line_of_sight(individual_state(team_states[1], team_positions[1][0]))
+        
 
     env.reset()
