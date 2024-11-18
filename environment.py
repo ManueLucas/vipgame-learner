@@ -74,7 +74,10 @@ class VipGame(gym.Env):
                 elif self.grid[i, j] == ATTACKER:
                     self.attacker_positions.append((i, j))  # Attacker position
 
-    def _move_agent(self, position, action, moveset, collisionset, killset):
+    def _move_agent(self, position, action, type):
+        moveset = self.get_moveset(type)
+        killset = self.get_killset(type)
+        collisionset = self.get_collisionset(type)
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
             return position, -1  # Invalid action, negative reward
@@ -85,6 +88,12 @@ class VipGame(gym.Env):
 
         # Collision check to ensure the agent stays within grid bounds and avoids walls
         if (0 <= new_position[0] < self.grid_height and 0 <= new_position[1] < self.grid_width):  # disallow collision with same team and walls
+            
+            if (type == ATTACKER and self.grid[new_position] == VIP):
+                self.grid[new_position] = self.grid[position]
+                self.grid[position] = 0
+                return new_position, 2  # median reward for killing VIP
+
             if (self.grid[new_position] in killset):
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
@@ -98,24 +107,18 @@ class VipGame(gym.Env):
         return position, -1  # Collision or out of bounds, negative reward
 
     def attacker_move(self, action, agent_id):
-        # Attacker has access to the full moveset (all 8 directions)
-        moveset = list(ACTIONS.values())
         # Update attacker position and get reward for the move
-        self.attacker_positions[agent_id], reward = self._move_agent(self.attacker_positions[agent_id], action, moveset, self.attackerside_collision_set, self.attacker_kill_set)
+        self.attacker_positions[agent_id], reward = self._move_agent(self.attacker_positions[agent_id], action, ATTACKER)
         return reward
 
     def defender_move(self, action, agent_id): # we can merge the attacker and defender move functions into one later
-        # Defender has access to the full moveset (all 8 directions)
-        moveset = list(ACTIONS.values())
         # Update defender position and get reward for the move
-        self.defender_positions[agent_id], reward = self._move_agent(self.defender_positions[agent_id], action, moveset, self.defenderside_collision_set, self.defender_kill_set)
+        self.defender_positions[agent_id], reward = self._move_agent(self.defender_positions[agent_id], action, DEFENDER)
         return reward
 
     def vip_move(self, action, agent_id):
-        # VIP has a limited moveset (up, down, left, right)
-        moveset = [ACTIONS['UP'], ACTIONS['DOWN'], ACTIONS['LEFT'], ACTIONS['RIGHT']]
         # Update VIP position and get reward for the move
-        self.vip_positions[agent_id], reward = self._move_agent(self.vip_positions[agent_id], action, moveset, self.defenderside_collision_set, [])
+        self.vip_positions[agent_id], reward = self._move_agent(self.vip_positions[agent_id], action, VIP)
         return reward
 
     def step(self, actions): #we expect a tuple of 3 lists of actions, one for each team
@@ -167,6 +170,31 @@ class VipGame(gym.Env):
                     else:
                         break
         return agent_view
+    
+    def get_killset(self, agent_type):
+        if agent_type == ATTACKER:
+            return self.attacker_kill_set
+        elif agent_type == DEFENDER:
+            return self.defender_kill_set
+        else:
+            return []
+        
+    def get_collisionset(self, agent_type):
+        if agent_type == ATTACKER:
+            return self.attackerside_collision_set
+        elif agent_type == DEFENDER:
+            return self.defenderside_collision_set
+        else:
+            return []
+
+    def get_moveset(self, agent_type):
+        # Defender has access to the full moveset (all 8 directions)
+        # Attacker has access to the full moveset (all 8 directions)
+        if agent_type == ATTACKER or agent_type == DEFENDER:
+            return list(ACTIONS.values())
+        # VIP has a limited moveset (up, down, left, right)
+        else:
+            return [ACTIONS['UP'], ACTIONS['DOWN'], ACTIONS['LEFT'], ACTIONS['RIGHT']]
 
     def reset(self):
         # Reset the environment to its initial state
