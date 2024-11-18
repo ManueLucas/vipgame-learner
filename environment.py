@@ -22,7 +22,9 @@ VIP = 2
 DEFENDER = 3
 ATTACKER = 4
 SELF = 5
-  
+
+# game result 
+UNDECIDED = -2
 
 class VipGame(gym.Env):
     def __init__(self, grid_map, max_timesteps=500):
@@ -167,7 +169,20 @@ class VipGame(gym.Env):
         # Increment the timestep counter
         self.timesteps_elapsed += 1
         # Check if the maximum number of timesteps has been reached
-        done = self.timesteps_elapsed >= self.max_timesteps
+        winner = self.get_winner()
+        done = self.timesteps_elapsed >= self.max_timesteps or winner != UNDECIDED
+
+        # Add big reward for winning team
+        if winner == ATTACKER:
+            attacker_reward.append(20)
+        elif winner == DEFENDER:
+            defender_reward.append(20)
+            vip_reward.append(20)
+        # when the game ends with no winner
+        elif done and winner == UNDECIDED:
+            # fixme: if the game ends in a draw, we should give a reward to the attackers or the defenders
+            attacker_reward.append(10)
+            defender_reward.append(10)  
         
         defenderside_vision = self.line_of_sight(self.defender_positions + self.vip_positions)
         attackerside_vision = self.line_of_sight(self.attacker_positions)
@@ -223,6 +238,13 @@ class VipGame(gym.Env):
         # VIP has a limited moveset (up, down, left, right)
         else:
             return [ACTIONS['UP'], ACTIONS['DOWN'], ACTIONS['LEFT'], ACTIONS['RIGHT']]
+
+    def get_winner(self):
+        if np.count_nonzero(self.grid == ATTACKER) == 0 and np.count_nonzero(self.grid == VIP) != 0:
+            return DEFENDER
+        if np.count_nonzero(self.grid == DEFENDER) == 0 or np.count_nonzero(self.grid == VIP) == 0:
+            return ATTACKER
+        return UNDECIDED # for undecided winner
 
     def reset(self):
         # Reset the environment to its initial state
