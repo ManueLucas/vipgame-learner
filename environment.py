@@ -25,7 +25,7 @@ SELF = 5
   
 
 class VipGame(gym.Env):
-    def __init__(self, grid_map, max_timesteps=100):
+    def __init__(self, grid_map, max_timesteps=500):
         # Initialize the grid, dimensions, max timesteps, and elapsed timesteps
         self.defenderside_collision_set = []
         self.grid = np.copy(grid_map)
@@ -38,6 +38,7 @@ class VipGame(gym.Env):
         
         self.attackerside_collision_set = [WALL, ATTACKER]
         self.defenderside_collision_set = [WALL, DEFENDER, VIP]
+        self.vipside_collision_set = [WALL, VIP, DEFENDER, ATTACKER]
         
         self.attacker_kill_set = [DEFENDER, VIP]
         self.defender_kill_set = [ATTACKER]
@@ -55,6 +56,7 @@ class VipGame(gym.Env):
         self.attacker_positions = [] 
         self.defender_positions = []
         self.vip_positions = []
+        self.dead_cell = (-100, -100)
         
         # Pygame initialization flag
         self.pygame_initialized = False
@@ -74,10 +76,14 @@ class VipGame(gym.Env):
                 elif self.grid[i, j] == ATTACKER:
                     self.attacker_positions.append((i, j))  # Attacker position
 
-    def _move_agent(self, position, action, type):
-        moveset = self.get_moveset(type)
-        killset = self.get_killset(type)
-        collisionset = self.get_collisionset(type)
+    def _move_agent(self, position, action, agent_type):
+        # do nothing if the agent is dead
+        if position == self.dead_cell:
+            return position, 0
+        
+        moveset = self.get_moveset(agent_type)
+        killset = self.get_killset(agent_type)
+        collisionset = self.get_collisionset(agent_type)
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
             return position, -1  # Invalid action, negative reward
@@ -89,14 +95,34 @@ class VipGame(gym.Env):
         # Collision check to ensure the agent stays within grid bounds and avoids walls
         if (0 <= new_position[0] < self.grid_height and 0 <= new_position[1] < self.grid_width):  # disallow collision with same team and walls
             
-            if (type == ATTACKER and self.grid[new_position] == VIP):
+            if (agent_type == ATTACKER and self.grid[new_position] == VIP):
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
+                # Move VIP to the death cell
+                vip_index = self.vip_positions.index(new_position)
+                self.vip_positions[vip_index] = self.dead_cell
                 return new_position, 2  # median reward for killing VIP
-
+            
+            # when a defender and an attacker meet each other, both die
             if (self.grid[new_position] in killset):
-                self.grid[new_position] = self.grid[position]
+                # remove them from the grid render
                 self.grid[position] = 0
+                self.grid[new_position] = 0
+                
+                if agent_type == ATTACKER:
+                    # Move defender to the death cell
+                    defender_index = self.defender_positions.index(new_position)
+                    self.defender_positions[defender_index] = self.dead_cell
+                    # Move attacker to the death cell
+                    return self.dead_cell, 3  # high reward for killing defender
+
+                elif agent_type == DEFENDER:
+                    # Move attacker to the death cell
+                    attacker_index = self.attacker_positions.index(new_position)
+                    self.attacker_positions[attacker_index] = self.dead_cell
+                    # Move defender to the death cell
+                    return self.dead_cell, 3 # high reward for killing attacker
+
                 return new_position, 1
             
             if (self.grid[new_position] not in collisionset):
@@ -153,6 +179,8 @@ class VipGame(gym.Env):
         
 
         for position in agent_positions:
+            if position == self.dead_cell:
+                continue # do nothing if the agent is dead
             agent_view[position] = self.grid[position]  # reveal where they are standing
             for delta in ACTIONS.values():
                 current_position = position
@@ -185,7 +213,7 @@ class VipGame(gym.Env):
         elif agent_type == DEFENDER:
             return self.defenderside_collision_set
         else:
-            return []
+            return self.vipside_collision_set
 
     def get_moveset(self, agent_type):
         # Defender has access to the full moveset (all 8 directions)
