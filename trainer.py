@@ -50,13 +50,14 @@ if __name__ == '__main__':
     n_games = 500
 
     for i in range(n_games):
-        done = False
+        truncated = False
+        terminated = False
         observation = env.reset().flatten()
         score = {'vip': 0, 'attacker': 0, 'defender': 0}
 
         print(f"observation type: {observation.dtype}")
 
-        while not done:
+        while not (truncated or terminated):
             # attacker_actions = [attacker_agent.choose_action(observation) for _ in range(1)]
             # attacker_actions = [attacker_agent.choose_action(individual_state(observation, env.attacker_positions[i], env.grid_width)) for i in range(1)]
             # defender_actions = [np.random.randint(0, defender_agent.n_actions) for _ in range(1)]
@@ -97,7 +98,7 @@ if __name__ == '__main__':
 
             fully_visible_state, (defenderside_vision, attackerside_vision), \
             (defender_reward, attacker_reward, vip_reward), \
-            (defender_positions, attacker_positions, vip_positions), done = env.step(actions)
+            (defender_positions, attacker_positions, vip_positions), truncated, terminate = env.step(actions)
 
             observation_ = fully_visible_state.flatten()
 
@@ -105,13 +106,13 @@ if __name__ == '__main__':
             score['defender'] += sum(defender_reward)
             score['vip'] += sum(vip_reward)
 
-            vip_agent.store_transition(observation, actions[2][0], sum(vip_reward), observation_, done)
+            vip_agent.store_transition(observation, actions[2][0], sum(vip_reward), observation_, truncated)
             vip_agent.learn()
 
-            attacker_agent.store_transition(observation, actions[0][0], sum(attacker_reward), observation_, done)
+            attacker_agent.store_transition(observation, actions[0][0], sum(attacker_reward), observation_, truncated)
             attacker_agent.learn()
 
-            defender_agent.store_transition(observation, actions[1][0], sum(defender_reward), observation_, done)
+            defender_agent.store_transition(observation, actions[1][0], sum(defender_reward), observation_, truncated)
             defender_agent.learn()
 
             observation = observation_
