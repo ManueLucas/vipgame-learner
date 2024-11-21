@@ -28,6 +28,7 @@ class VipGame(gym.Env):
     def __init__(self, grid_map, max_timesteps=500):
         # Initialize the grid, dimensions, max timesteps, and elapsed timesteps
         self.defenderside_collision_set = []
+        self.original_grid = np.copy(grid_map)
         self.grid = np.copy(grid_map)
         self.grid_height, self.grid_width = self.grid.shape
         self.max_timesteps = max_timesteps
@@ -76,24 +77,7 @@ class VipGame(gym.Env):
         self.screen = None
         
         # Find and set the initial positions of agents
-        self._initialize_positions()
-
-    def _initialize_positions(self):
-        # Loop through the grid to find initial positions of agents
-        for i in range(self.grid_height):
-            for j in range(self.grid_width):
-                if self.grid[i, j] == VIP:
-                    self.vip_positions.append((i, j))  # VIP position
-                    self.number_of_vips += 1
-                elif self.grid[i, j] == DEFENDER:
-                    self.defender_positions.append((i, j))  # Defender position
-                    self.number_of_defenders += 1
-                elif self.grid[i, j] == ATTACKER:
-                    self.attacker_positions.append((i, j))  # Attacker position
-                    self.number_of_attackers += 1
-        self.live_vips = [True] * self.number_of_vips
-        self.live_attackers = [True] * self.number_of_attackers
-        self.live_defenders = [True] * self.number_of_defenders
+        self.reset()
 
 
     def _move_agent(self, position, action, agent_type, agent_id):
@@ -116,13 +100,14 @@ class VipGame(gym.Env):
         if (0 <= new_position[0] < self.grid_height and 0 <= new_position[1] < self.grid_width):  # disallow collision with same team and walls
             
             if (agent_type == ATTACKER and self.grid[new_position] == VIP):
+                print("vip killed")
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
                 # Move VIP to the death cell
                 vip_index = self.vip_positions.index(new_position)
                 self.vip_positions[vip_index] = self.dead_cell
                 self.number_of_vip_dead += 1
-                return new_position, 2  # median reward for killing VIP
+                return new_position, 10
             
             # when a defender and an attacker meet each other, both die
             if (self.grid[new_position] in killset):
@@ -271,7 +256,35 @@ class VipGame(gym.Env):
     def reset(self):
         # Reset the environment to its initial state
         self.timesteps_elapsed = 0
-        self._initialize_positions()
+        
+        self.number_of_vip_dead = 0
+        self.number_of_attacker_dead = 0
+        self.number_of_defender_dead = 0
+        
+        self.number_of_attackers = 0
+        self.number_of_defenders = 0
+        self.number_of_vips = 0
+        
+        self.attacker_positions = []
+        self.defender_positions = []
+        self.vip_positions = []
+        
+        self.grid = np.copy(self.original_grid)
+        # Loop through the grid to find initial positions of agents
+        for i in range(self.grid_height):
+            for j in range(self.grid_width):
+                if self.grid[i, j] == VIP:
+                    self.vip_positions.append((i, j))  # VIP position
+                    self.number_of_vips += 1
+                elif self.grid[i, j] == DEFENDER:
+                    self.defender_positions.append((i, j))  # Defender position
+                    self.number_of_defenders += 1
+                elif self.grid[i, j] == ATTACKER:
+                    self.attacker_positions.append((i, j))  # Attacker position
+                    self.number_of_attackers += 1
+        self.live_vips = [True] * self.number_of_vips
+        self.live_attackers = [True] * self.number_of_attackers
+        self.live_defenders = [True] * self.number_of_defenders
         return self.grid
             
 

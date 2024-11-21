@@ -71,7 +71,7 @@ if __name__ == '__main__':
             defender_actions = []
             vip_actions = []
 
-            for j in range(1):
+            for j in range(env.number_of_attackers):
                 if env.attacker_positions[j] == env.dead_cell:
                     attacker_actions.append(-1)
                     
@@ -79,7 +79,8 @@ if __name__ == '__main__':
                     attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
                     attacker_agent_action = attacker_agent.choose_action(attacker_state)
                     attacker_actions.append(attacker_agent_action)
-
+                    
+            for j in range(env.number_of_defenders):
                 if env.defender_positions[j] == env.dead_cell:
                     defender_actions.append(-1)
 
@@ -88,6 +89,7 @@ if __name__ == '__main__':
                     defender_agent_action = defender_agent.choose_action(defender_state)
                     defender_actions.append(defender_agent_action)
 
+            for j in range(env.number_of_vips):
                 if env.vip_positions[j] == env.dead_cell:
                     vip_actions.append(-1)
 
@@ -107,14 +109,19 @@ if __name__ == '__main__':
             score['attacker'] += sum(attacker_reward)
             score['defender'] += sum(defender_reward)
             score['vip'] += sum(vip_reward)
-
-            vip_agent.store_transition(observation, actions[2][0], sum(vip_reward), observation_, truncated)
+            
+            for k in range(env.number_of_attackers):
+                if env.attacker_positions[k] != env.dead_cell:
+                    attacker_agent.store_transition(individual_state(observation, env.attacker_positions[k], env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, env.attacker_positions[k], env.grid_width), truncated)
+            for k in range(env.number_of_defenders):
+                if env.defender_positions[k] != env.dead_cell:
+                    defender_agent.store_transition(individual_state(observation, env.defender_positions[k], env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, env.defender_positions[k], env.grid_width), truncated)
+            for k in range(env.number_of_vips):
+                if env.vip_positions[k] != env.dead_cell:
+                    vip_agent.store_transition(individual_state(observation, env.vip_positions[k], env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, env.vip_positions[k], env.grid_width), truncated)
+            
             vip_agent.learn()
-
-            attacker_agent.store_transition(observation, actions[0][0], sum(attacker_reward), observation_, truncated)
             attacker_agent.learn()
-
-            defender_agent.store_transition(observation, actions[1][0], sum(defender_reward), observation_, truncated)
             defender_agent.learn()
 
             observation = observation_
@@ -187,7 +194,7 @@ if __name__ == '__main__':
         (defender_positions, attacker_positions, vip_positions), truncated, terminate = env.step(actions)
 
         observation_ = fully_visible_state.flatten()
-
+        print(fully_visible_state)
         env.render(fully_visible_state)
         time.sleep(0.05)  # Wait for 100ms
 
