@@ -90,6 +90,7 @@ class VipGame(gym.Env):
         collisionset = self.get_collisionset(agent_type)
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
+            print(f'something went wrong, {action} is not a valid action for {agent_type}') 
             return position, -1  # Invalid action, negative reward
 
         # Calculate the new position based on the action taken
@@ -140,9 +141,9 @@ class VipGame(gym.Env):
             if (self.grid[new_position] not in collisionset):
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
-                return new_position, 0  # Successful move, neutral reward
+                return new_position, -1  #agent gets negative reward either way
 
-        return position, -1  # Collision or out of bounds, negative reward
+        return position, -1 
 
     def attacker_move(self, action, agent_id):
         # Update attacker position and get reward for the move

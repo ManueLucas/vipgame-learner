@@ -38,6 +38,7 @@ class Agent:
         self.mem_size = max_mem_size
         self.batch_size = batch_size
         self.mem_cntr = 0
+        self.states_previously_seen = set()
 
         # Initialize the Deep Q-Network
         self.Q_eval = DeepQNetwork(self.lr, n_actions=self.n_actions, input_dims=input_dims, fc1_dims=256, fc2_dims=256)
@@ -48,9 +49,19 @@ class Agent:
         self.action_memory = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
+    
+    def load_weights(self, file_path='dqn_model_weights.pth'):
+        self.Q_eval.load_state_dict(T.load(file_path))
+        
+    def save_weights(self, file_path='dqn_model_weights.pth'):
+        T.save(self.Q_eval.state_dict(), file_path)
 
-    def store_transition(self, state, action, reward, state_, done):
+    def store_transition(self, state, action, reward, state_, done, position):
+        
         index = self.mem_cntr % self.mem_size
+        if position not in self.states_previously_seen:
+            self.states_previously_seen.add(position)
+            reward += 1
         self.state_memory[index] = state
         self.new_state_memory[index] = state_
         self.reward_memory[index] = reward
