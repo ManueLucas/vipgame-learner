@@ -2,6 +2,7 @@ import gymnasium
 from simple_dqn_torch import Agent
 import numpy as np
 import environment
+import time
 import matplotlib.pyplot as plt
 from main import individual_state
 
@@ -39,15 +40,16 @@ if __name__ == '__main__':
     grid_map = np.loadtxt("map_presets/grid.csv", delimiter=",")
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
-
-    vip_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4)
-    attacker_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8)
-    defender_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8)
+    n_games = 5
+    eps_dec = 1/(n_games * env.max_timesteps)
+    print(f"eps_dec: {eps_dec}")
+    vip_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4, eps_dec=eps_dec)
+    attacker_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8, eps_dec=eps_dec)
+    defender_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8, eps_dec=eps_dec) 
     
     scores = {'vip': [], 'attacker': [], 'defender': []}
     eps_history = {'vip': [], 'attacker': [], 'defender': []}
 
-    n_games = 500
 
     for i in range(n_games):
         truncated = False
@@ -136,3 +138,58 @@ if __name__ == '__main__':
         x = [i + 1 for i in range(n_games)]
         filename = f'{agent_name}_training.png'
         plot_learning_curve(x, scores[agent_name], eps_history[agent_name], filename)
+        
+    truncated = False
+    terminated = False
+    observation = env.reset().flatten()
+
+    while not (truncated or terminated):
+        # attacker_actions = [attacker_agent.choose_action(observation) for _ in range(1)]
+        # attacker_actions = [attacker_agent.choose_action(individual_state(observation, env.attacker_positions[i], env.grid_width)) for i in range(1)]
+        # defender_actions = [np.random.randint(0, defender_agent.n_actions) for _ in range(1)]
+        # defender_actions = [defender_agent.choose_action(individual_state(observation, env.defender_positions[i], env.grid_width)) for i in range(1)]
+        # vip_actions = [np.random.randint(0, vip_agent.n_actions) for _ in range(1)]
+        # vip_actions = [vip_agent.choose_action(individual_state(observation, env.vip_positions[i], env.grid_width)) for i in range(1)]
+        
+        attacker_actions = []
+        defender_actions = []
+        vip_actions = []
+
+        for j in range(1):
+            if env.attacker_positions[j] == env.dead_cell:
+                attacker_actions.append(-1)
+                
+            else:
+                attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
+                attacker_agent_action = attacker_agent.choose_action(attacker_state)
+                attacker_actions.append(attacker_agent_action)
+
+            if env.defender_positions[j] == env.dead_cell:
+                defender_actions.append(-1)
+
+            else:   
+                defender_state = individual_state(observation, env.defender_positions[j], env.grid_width)
+                defender_agent_action = defender_agent.choose_action(defender_state)
+                defender_actions.append(defender_agent_action)
+
+            if env.vip_positions[j] == env.dead_cell:
+                vip_actions.append(-1)
+
+            else:
+                vip_state = individual_state(observation, env.vip_positions[j], env.grid_width)
+                vip_agent_action = vip_agent.choose_action(vip_state)
+                vip_actions.append(vip_agent_action)
+
+        actions = (attacker_actions, defender_actions, vip_actions)
+
+        fully_visible_state, (defenderside_vision, attackerside_vision), \
+        (defender_reward, attacker_reward, vip_reward), \
+        (defender_positions, attacker_positions, vip_positions), truncated, terminate = env.step(actions)
+
+        observation_ = fully_visible_state.flatten()
+
+        env.render(fully_visible_state)
+        time.sleep(0.05)  # Wait for 100ms
+
+        
+        observation = observation_
