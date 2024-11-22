@@ -195,6 +195,11 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         print(f"  VIP: Score {score['vip']:.2f}, Avg Score {np.mean(scores['vip'][-100:]):.2f}, Epsilon {vip_agent.epsilon:.2f}")
         print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}, Epsilon {attacker_agent.epsilon:.2f}")
         print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}, Epsilon {defender_agent.epsilon:.2f}")
+
+        if (i + 1) % 100 == 0:
+            vip_agent.save_weights('vip_agent_weights.pth')
+            attacker_agent.save_weights('attacker_agent_weights.pth')
+            defender_agent.save_weights('defender_agent_weights.pth')
         
     #save the weights of the agent
     vip_agent.save_weights('vip_agent_weights.pth')
