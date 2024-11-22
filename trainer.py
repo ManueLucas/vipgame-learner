@@ -37,10 +37,12 @@ def plot_learning_curve(x, scores, epsilons, filename, lines=None):
 
     plt.savefig(filename)
     
+    
 def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
+
     n_games = 30
     eps_dec = 1/(n_games * env.max_timesteps)
     print(f"eps_dec: {eps_dec}")
@@ -176,13 +178,13 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         filename = f'{agent_name}_training.png'
         plot_learning_curve(x, scores[agent_name], eps_history[agent_name], filename)
     
-def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path):
+def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, epsilon=0.1):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
     env = environment.VipGame(grid_map=grid_map)
     
-    vip_agent = Agent(gamma=0.99, epsilon=.01, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4)
-    attacker_agent = Agent(gamma=0.99, epsilon=.01, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8)
-    defender_agent = Agent(gamma=0.99, epsilon=.01, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8) 
+    vip_agent = Agent(gamma=0.99, epsilon=epsilon, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4)
+    attacker_agent = Agent(gamma=0.99, epsilon=epsilon, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8)
+    defender_agent = Agent(gamma=0.99, epsilon=epsilon, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8) 
     
     if(os.path.exists('vip_agent_weights.pth')):
         vip_agent.load_weights('vip_agent_weights.pth')
@@ -207,7 +209,7 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         defender_actions = []
         vip_actions = []
 
-        for j in range(1):
+        for j in range(env.number_of_attackers):
             if env.attacker_positions[j] == env.dead_cell:
                 attacker_actions.append(-1)
                 
@@ -215,7 +217,7 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
                 attacker_agent_action = attacker_agent.choose_action(attacker_state)
                 attacker_actions.append(attacker_agent_action)
-
+        for j in range(env.number_of_defenders):
             if env.defender_positions[j] == env.dead_cell:
                 defender_actions.append(-1)
 
@@ -224,6 +226,7 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 defender_agent_action = defender_agent.choose_action(defender_state)
                 defender_actions.append(defender_agent_action)
 
+        for j in range(env.number_of_vips):
             if env.vip_positions[j] == env.dead_cell:
                 vip_actions.append(-1)
 
@@ -244,4 +247,4 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
 
 if __name__ == '__main__':
     #train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv')
-    trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv')
+    trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv',epsilon=0.1)
