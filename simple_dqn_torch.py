@@ -51,7 +51,10 @@ class Agent:
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
     
     def load_weights(self, file_path='dqn_model_weights.pth'):
-        self.Q_eval.load_state_dict(T.load(file_path))
+        if T.cuda.is_available():
+            self.Q_eval.load_state_dict(T.load(file_path))
+        else:
+            self.Q_eval.load_state_dict(T.load(file_path, map_location=T.device('cpu')))
         
     def save_weights(self, file_path='dqn_model_weights.pth'):
         T.save(self.Q_eval.state_dict(), file_path)

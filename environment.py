@@ -144,7 +144,7 @@ class VipGame(gym.Env):
                 self.grid[position] = 0
                 return new_position, -.01  #agent gets negative reward either way
 
-        return position, -.01
+        return position, -.02
 
     def attacker_move(self, action, agent_id):
         # Update attacker position and get reward for the move
