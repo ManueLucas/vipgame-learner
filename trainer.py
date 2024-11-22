@@ -57,13 +57,13 @@ def place_agents(grid_map, agents):
 def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, baseline_epsilon=0.25):
     agents = {
         "2": 1, # vip
-        "3": 2, # defender
-        "4": 2, # attacker
+        "3": 1, # defender
+        "4": 1, # attacker
     }
 
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
-    grid_map[grid_map > 1] = 0
-    grid_map = place_agents(grid_map, agents)
+    #grid_map[grid_map > 1] = 0
+    #grid_map = place_agents(grid_map, agents)
 
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
@@ -99,6 +99,8 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         print(f"observation type: {observation.dtype}")
 
         while True:
+            if(truncated or terminated):
+                print('we should have terminated by now')
             # attacker_actions = [attacker_agent.choose_action(observation) for _ in range(1)]
             # attacker_actions = [attacker_agent.choose_action(individual_state(observation, env.attacker_positions[i], env.grid_width)) for i in range(1)]
             # defender_actions = [np.random.randint(0, defender_agent.n_actions) for _ in range(1)]
