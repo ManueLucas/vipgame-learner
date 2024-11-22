@@ -47,6 +47,14 @@ class Agent:
         self.actor = ActorNetwork(actor_lr, input_dims, fc1_dims, fc2_dims, n_actions)
         self.critic = CriticNetwork(critic_lr, input_dims, fc1_dims, fc2_dims)
         self.memory = {'states': [], 'actions': [], 'log_probs': [], 'rewards': [], 'values': [], 'dones': []}
+    
+    def load_weights(self, file_path1='ppocritic_model_weights.pth', file_path2='ppoactor_model_weights.pth'):
+        self.critic.load_state_dict(T.load(file_path1))
+        self.actor.load_state_dict(T.load(file_path2))
+        
+    def save_weights(self, file_path1='ppocritic_model_weights.pth', file_path2='ppoactor_model_weights.pth'):
+        T.save(self.critic.state_dict(), file_path1)
+        T.save(self.actor.state_dict(), file_path2)
 
     def choose_action(self, observation):
         state = T.tensor([observation], dtype=T.float).to(self.actor.device)
