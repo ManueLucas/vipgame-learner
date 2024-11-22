@@ -99,7 +99,7 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         score = {'vip': 0, 'attacker': 0, 'defender': 0}
 
         print(f"observation type: {observation.dtype}")
-        env.render(grid_map)
+        # env.render(grid_map)
 
         while True:
             if(truncated or terminated):
