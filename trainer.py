@@ -54,7 +54,7 @@ def place_agents(grid_map, agents):
 
     return grid_map
 
-def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, baseline_epsilon=0.25):
+def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, baseline_epsilon=0.25, randomize_spawn_points=False):
     agents = {
         "2": 1, # vip
         "3": 1, # defender
@@ -62,8 +62,10 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
     }
 
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
-    #grid_map[grid_map > 1] = 0
-    #grid_map = place_agents(grid_map, agents)
+
+    if(randomize_spawn_points):
+        grid_map[grid_map > 1] = 0
+        grid_map = place_agents(grid_map, agents)
 
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
@@ -97,6 +99,7 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         score = {'vip': 0, 'attacker': 0, 'defender': 0}
 
         print(f"observation type: {observation.dtype}")
+        env.render(grid_map)
 
         while True:
             if(truncated or terminated):
@@ -277,6 +280,7 @@ if __name__ == '__main__':
     parser.add_argument('--epsilon', type=float, default=0.1, help='Epsilon value for the trial, or minimum epsilon value for training')
     parser.add_argument('--map', type=str, default='map_presets/grid.csv', help='Path to the map file')
     parser.add_argument('--episodes', type=int, default=10, help='N many episodes to train the agents')
+    parser.add_argument('--random', type=bool, default=False, help='randomizes spawn points if set to true')
     args = parser.parse_args()
     
     if args.epsilon < 0 or args.epsilon > 1:
@@ -284,6 +288,6 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, baseline_epsilon=args.epsilon)
+        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
     elif args.mode == 'trial':
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)
