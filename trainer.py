@@ -39,8 +39,32 @@ def plot_learning_curve(x, scores, epsilons, filename, lines=None):
     plt.savefig(filename)
     
     
+def place_agents(grid_map, agents):
+    valid_positions = np.argwhere(grid_map == 0)
+    
+    np.random.shuffle(valid_positions)
+    
+    for agent_type, count in agents.items():
+        for _ in range(count):
+            
+            pos = valid_positions[0]
+            valid_positions = valid_positions[1:]
+            
+            grid_map[tuple(pos)] = agent_type
+
+    return grid_map
+
 def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, baseline_epsilon=0.25):
+    agents = {
+        "2": 1, # vip
+        "3": 2, # defender
+        "4": 2, # attacker
+    }
+
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
+    grid_map[grid_map > 1] = 0
+    grid_map = place_agents(grid_map, agents)
+
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
 
@@ -126,9 +150,9 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
             #     print(f'vip_reward: {vip_reward}')
             observation_ = fully_visible_state.flatten()
 
-            score['attacker'] += sum(attacker_reward)
-            score['defender'] += sum(defender_reward)
-            score['vip'] += sum(vip_reward)
+            score['attacker'] += np.mean(attacker_reward)
+            score['defender'] += np.mean(defender_reward)
+            score['vip'] += np.mean(vip_reward)
             
             for k in range(env.number_of_attackers):
                 attacker_position = env.attacker_positions[k]
