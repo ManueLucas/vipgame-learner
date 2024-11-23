@@ -5,26 +5,42 @@ import torch.optim as optim
 import numpy as np
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions):
+    def __init__(self, lr, input_dims, n_actions, num_channels, conv1_dims, conv2_dims, fc1_dims, fc2_dims):
         super(DeepQNetwork, self).__init__()
-        self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.fc2_dims = fc2_dims
+        self.input_dims = input_dims  # (channels, height, width)
         self.n_actions = n_actions
-        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.fc3 = nn.Linear(self.fc2_dims, self.n_actions)
+        self.num_channels = num_channels
+        
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(self.num_channels, conv1_dims, kernel_size=3, stride=1, padding=1)  # Keep dimensions
+        self.conv2 = nn.Conv2d(conv1_dims, conv2_dims, kernel_size=3, stride=1, padding=1)
+        
+        # Calculate flattened size after convolutions for the fully connected layers
+        self.fc_input_dims = conv2_dims * input_dims[1] * input_dims[2]
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(self.fc_input_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.fc3 = nn.Linear(fc2_dims, n_actions)
+        
+        # Optimizer and loss
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         self.to(self.device)
 
     def forward(self, state):
-        x = F.relu(self.fc1(state))
+        """
+        Forward pass: `state` shape is expected as (batch_size, channels, height, width)
+        """
+        x = F.relu(self.conv1(state))  # Convolutional layers
+        x = F.relu(self.conv2(x))
+        x = x.view(x.size(0), -1)  # Flatten for fully connected layers
+        x = F.relu(self.fc1(x))    # Fully connected layers
         x = F.relu(self.fc2(x))
         actions = self.fc3(x)
-
         return actions
+
 
 class Agent:
     def __init__(self, gamma, epsilon, lr, input_dims, batch_size, n_actions, max_mem_size=100000, eps_end=0.01, eps_dec=5e-4):
