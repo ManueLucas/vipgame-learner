@@ -109,6 +109,9 @@ class VipGame(gym.Env):
                 self.vip_positions[vip_index] = self.dead_cell
                 self.number_of_vip_dead += 1
                 return new_position, 10
+            elif (agent_type == VIP and self.grid[new_position] == ATTACKER): #penalize the VIP for moving into an attacker
+                self.grid[position] = 0
+                return self.dead_cell, -20
             
             # when a defender and an attacker meet each other, both die
             if (self.grid[new_position] in killset):
