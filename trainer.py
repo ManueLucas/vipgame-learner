@@ -213,7 +213,7 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         vip_agent.save_weights('vip_agent_weights.pth')
     elif agent_to_train == 'attacker':
         attacker_agent.save_weights('attacker_agent_weights.pth')
-    elif agent_to_train == 'vip':
+    elif agent_to_train == 'defender':
         defender_agent.save_weights('defender_agent_weights.pth')
 
     # Plots n dat
