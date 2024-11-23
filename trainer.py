@@ -303,6 +303,11 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train=args.agent, baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        print("TRAINING VIP")
+        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="vip", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        print("TRAINING DEFENDER")
+        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="defender", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        print("TRAINING ATTACKER")
+        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="attacker", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
     elif args.mode == 'trial':
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)
