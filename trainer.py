@@ -54,7 +54,7 @@ def place_agents(grid_map, agents):
 
     return grid_map
 
-def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, baseline_epsilon=0.25, randomize_spawn_points=False):
+def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, n_games, agent_to_train, baseline_epsilon=0.25, randomize_spawn_points=False):
     agents = {
         "2": 1, # vip
         "3": 1, # defender
@@ -114,34 +114,36 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
             attacker_actions = []
             defender_actions = []
             vip_actions = []
-            
 
-            for j in range(env.number_of_attackers):
-                if env.attacker_positions[j] == env.dead_cell:
+            for k in range(env.number_of_attackers):
+                if env.attacker_positions[k] == env.dead_cell:
                     attacker_actions.append(-1)
-                    
+                elif agent_to_train == "attacker":
+                    attacker_actions.append(
+                        attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width))
+                    )
                 else:
-                    attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
-                    attacker_agent_action = attacker_agent.choose_action(attacker_state)
-                    attacker_actions.append(attacker_agent_action)
-           # print(f"attacker_actions: {attacker_actions}")
-            for j in range(env.number_of_defenders):
-                if env.defender_positions[j] == env.dead_cell:
+                    attacker_actions.append(np.random.randint(0, attacker_agent.n_actions))
+
+            for k in range(env.number_of_defenders):
+                if env.defender_positions[k] == env.dead_cell:
                     defender_actions.append(-1)
-
-                else:   
-                    defender_state = individual_state(observation, env.defender_positions[j], env.grid_width)
-                    defender_agent_action = defender_agent.choose_action(defender_state)
-                    defender_actions.append(defender_agent_action)
-
-            for j in range(env.number_of_vips):
-                if env.vip_positions[j] == env.dead_cell:
-                    vip_actions.append(-1)
-
+                elif agent_to_train == "defender":
+                    defender_actions.append(
+                        defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width))
+                    )
                 else:
-                    vip_state = individual_state(observation, env.vip_positions[j], env.grid_width)
-                    vip_agent_action = vip_agent.choose_action(vip_state)
-                    vip_actions.append(vip_agent_action)
+                    defender_actions.append(np.random.randint(0, defender_agent.n_actions))
+
+            for k in range(env.number_of_vips):
+                if env.vip_positions[k] == env.dead_cell:
+                    vip_actions.append(-1)
+                elif agent_to_train == "vip":
+                    vip_actions.append(
+                        vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width))
+                    )
+                else:
+                    vip_actions.append(np.random.randint(0, vip_agent.n_actions))
 
             actions = (attacker_actions, defender_actions, vip_actions)
 
@@ -159,24 +161,26 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
             score['defender'] += np.mean(defender_reward)
             score['vip'] += np.mean(vip_reward)
             
-            for k in range(env.number_of_attackers):
-                attacker_position = env.attacker_positions[k]
-                if env.attacker_positions[k] != env.dead_cell:
-                    attacker_agent.store_transition(individual_state(observation, attacker_position, env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, attacker_position, env.grid_width), truncated, attacker_position)
-            
-            for k in range(env.number_of_defenders):
-                defender_position = env.defender_positions[k]
-                if env.defender_positions[k] != env.dead_cell:
-                    defender_agent.store_transition(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), truncated, defender_position)
-            
-            for k in range(env.number_of_vips):
-                vip_position = env.vip_positions[k]
-                if env.vip_positions[k] != env.dead_cell:
-                    vip_agent.store_transition(individual_state(observation, vip_position, env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, vip_position, env.grid_width), truncated, vip_position)
-            
-            vip_agent.learn()
-            attacker_agent.learn()
-            defender_agent.learn()
+            if agent_to_train == "attacker":
+                for k in range(env.number_of_attackers):
+                    attacker_position = env.attacker_positions[k]
+                    if env.attacker_positions[k] != env.dead_cell:
+                        attacker_agent.store_transition(individual_state(observation, attacker_position, env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, attacker_position, env.grid_width), truncated, attacker_position)
+                attacker_agent.learn()
+
+            elif agent_to_train == "defender":
+                for k in range(env.number_of_defenders):
+                    defender_position = env.defender_positions[k]
+                    if env.defender_positions[k] != env.dead_cell:
+                        defender_agent.store_transition(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), truncated, defender_position)
+                defender_agent.learn()
+
+            elif agent_to_train == "vip":
+                for k in range(env.number_of_vips):
+                    vip_position = env.vip_positions[k]
+                    if env.vip_positions[k] != env.dead_cell:
+                        vip_agent.store_transition(individual_state(observation, vip_position, env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, vip_position, env.grid_width), truncated, vip_position)
+                vip_agent.learn()
             
             if truncated or terminated:
                 break
@@ -197,20 +201,25 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}, Epsilon {defender_agent.epsilon:.2f}")
 
         if (i + 1) % 100 == 0:
-            vip_agent.save_weights('vip_agent_weights.pth')
-            attacker_agent.save_weights('attacker_agent_weights.pth')
-            defender_agent.save_weights('defender_agent_weights.pth')
+            if agent_to_train == 'vip':
+                vip_agent.save_weights('vip_agent_weights.pth')
+            elif agent_to_train == 'attacker':
+                attacker_agent.save_weights('attacker_agent_weights.pth')
+            elif agent_to_train == 'vip':
+                defender_agent.save_weights('defender_agent_weights.pth')
         
     #save the weights of the agent
-    vip_agent.save_weights('vip_agent_weights.pth')
-    attacker_agent.save_weights('attacker_agent_weights.pth')
-    defender_agent.save_weights('defender_agent_weights.pth')
+    if agent_to_train == 'vip':
+        vip_agent.save_weights('vip_agent_weights.pth')
+    elif agent_to_train == 'attacker':
+        attacker_agent.save_weights('attacker_agent_weights.pth')
+    elif agent_to_train == 'vip':
+        defender_agent.save_weights('defender_agent_weights.pth')
 
     # Plots n dat
-    for agent_name in ['vip', 'attacker', 'defender']:
-        x = [i + 1 for i in range(n_games)]
-        filename = f'{agent_name}_training.png'
-        plot_learning_curve(x, scores[agent_name], eps_history[agent_name], filename)
+    x = [i + 1 for i in range(n_games)]
+    filename = f'{agent_to_train}_training.png'
+    plot_learning_curve(x, scores[agent_to_train], eps_history[agent_to_train], filename)
     
 def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, epsilon=0.1):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
@@ -286,6 +295,7 @@ if __name__ == '__main__':
     parser.add_argument('--map', type=str, default='map_presets/grid.csv', help='Path to the map file')
     parser.add_argument('--episodes', type=int, default=10, help='N many episodes to train the agents')
     parser.add_argument('--random', type=bool, default=False, help='randomizes spawn points if set to true')
+    parser.add_argument('--agent', type=str, help='specify which agent to train (attacker, defender, vip)')
     args = parser.parse_args()
     
     if args.epsilon < 0 or args.epsilon > 1:
@@ -293,6 +303,6 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train=args.agent, baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
     elif args.mode == 'trial':
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)
