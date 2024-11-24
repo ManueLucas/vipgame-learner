@@ -70,19 +70,19 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
 
-    eps_dec = 1/(n_games * env.max_timesteps)
+    eps_dec = (1.0 - baseline_epsilon) / (n_games * env.max_timesteps)
     print(f"eps_dec: {eps_dec}")
     vip_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4, eps_dec=eps_dec, eps_end=baseline_epsilon)
     attacker_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8, eps_dec=eps_dec, eps_end=baseline_epsilon)
     defender_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=8, eps_dec=eps_dec, eps_end=baseline_epsilon) 
     
-    if(os.path.exists(path_to_vip_weights)):
+    if os.path.exists(path_to_vip_weights):
         vip_agent.load_weights(path_to_vip_weights)
-        
-    if(os.path.exists(path_to_attacker_weights)):
+
+    if os.path.exists(path_to_attacker_weights):
         attacker_agent.load_weights(path_to_attacker_weights)
-        
-    if(os.path.exists(path_to_defender_weights)):  
+
+    if os.path.exists(path_to_defender_weights):
         defender_agent.load_weights(path_to_defender_weights)
         
     print(env.number_of_attackers)
@@ -119,9 +119,9 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 if env.attacker_positions[k] == env.dead_cell:
                     attacker_actions.append(-1)
                 elif agent_to_train == "attacker":
-                    attacker_actions.append(
-                        attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width))
-                    )
+                    attacker_actions.append(attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width)))
+                elif os.path.exists('attacker_agent_weights.pth'):
+                    attacker_actions.append(attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width)))
                 else:
                     attacker_actions.append(np.random.randint(0, attacker_agent.n_actions))
 
@@ -129,9 +129,9 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 if env.defender_positions[k] == env.dead_cell:
                     defender_actions.append(-1)
                 elif agent_to_train == "defender":
-                    defender_actions.append(
-                        defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width))
-                    )
+                    defender_actions.append(defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width)))
+                elif os.path.exists('defender_agent_weights.pth'):
+                    defender_actions.append(defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width)))
                 else:
                     defender_actions.append(np.random.randint(0, defender_agent.n_actions))
 
@@ -139,9 +139,9 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 if env.vip_positions[k] == env.dead_cell:
                     vip_actions.append(-1)
                 elif agent_to_train == "vip":
-                    vip_actions.append(
-                        vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width))
-                    )
+                    vip_actions.append(vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width)))
+                elif os.path.exists('vip_agent_weights.pth'):
+                    vip_actions.append(vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width)))
                 else:
                     vip_actions.append(np.random.randint(0, vip_agent.n_actions))
 
@@ -205,7 +205,7 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                 vip_agent.save_weights('vip_agent_weights.pth')
             elif agent_to_train == 'attacker':
                 attacker_agent.save_weights('attacker_agent_weights.pth')
-            elif agent_to_train == 'vip':
+            elif agent_to_train == 'defender':
                 defender_agent.save_weights('defender_agent_weights.pth')
         
     #save the weights of the agent
@@ -296,6 +296,7 @@ if __name__ == '__main__':
     parser.add_argument('--episodes', type=int, default=10, help='N many episodes to train the agents')
     parser.add_argument('--random', type=bool, default=False, help='randomizes spawn points if set to true')
     parser.add_argument('--agent', type=str, help='specify which agent to train (attacker, defender, vip)')
+    parser.add_argument('--cycles', type=int, default=1, help='Number of training cycles to run for all agents')
     args = parser.parse_args()
     
     if args.epsilon < 0 or args.epsilon > 1:
@@ -303,11 +304,13 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
-        print("TRAINING VIP")
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="vip", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
-        print("TRAINING DEFENDER")
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="defender", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
-        print("TRAINING ATTACKER")
-        train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="attacker", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        for cycle in range(args.cycles):
+            print(f"TRAINING VIP (Cycle: {cycle}/{args.cycles})")
+            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="vip", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+            print(f"TRAINING DEFENDER (Cycle: {cycle}/{args.cycles})")
+            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="defender", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+            print(f"TRAINING ATTACKER (Cycle: {cycle}/{args.cycles})")
+            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="attacker", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+        print("Training Complete")
     elif args.mode == 'trial':
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)
