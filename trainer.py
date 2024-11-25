@@ -1,3 +1,4 @@
+import pickle
 import gymnasium
 from simple_dqn_torch import Agent
 import numpy as np
@@ -10,33 +11,36 @@ import argparse
 
 
 def plot_learning_curve(x, scores, epsilons, filename, lines=None):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, label="1")
-    ax2 = fig.add_subplot(111, label="2", frame_on=False)
+    # Load existing plot if it exists
+    if os.path.exists(filename + ".pkl"):
+        with open(filename + ".pkl", "rb") as f:
+            fig, ax, ax2 = pickle.load(f)
+    else:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, label="1")
+        ax2 = fig.add_subplot(111, label="2", frame_on=False)
+        ax.set_xlabel("Training Steps", color="C0")
+        ax.set_ylabel("Epsilon", color="C0")
+        ax2.set_ylabel("Score", color="C1")
+        ax2.yaxis.set_label_position('right')
+        ax2.yaxis.tick_right()
 
-    ax.plot(x, epsilons, color="C0")
-    ax.set_xlabel("Training Steps", color="C0")
-    ax.set_ylabel("Epsilon", color="C0")
-    ax.tick_params(axis='x', colors="C0")
-    ax.tick_params(axis='y', colors="C0")
-
+    # Update the plot with new data
+    ax.plot(x, epsilons, color="C0", alpha=0.7)  # Add new epsilon data
     N = len(scores)
     running_avg = np.empty(N)
     for t in range(N):
         running_avg[t] = np.mean(scores[max(0, t - 20):(t + 1)])
-
-    ax2.scatter(x, running_avg, color="C1")
-    ax2.axes.get_xaxis().set_visible(False)
-    ax2.yaxis.tick_right()
-    ax2.set_ylabel('Score', color="C1")
-    ax2.yaxis.set_label_position('right')
-    ax2.tick_params(axis='y', colors="C1")
+    ax2.scatter(x, running_avg, color="C1", alpha=0.7)  # Add new score data
 
     if lines is not None:
         for line in lines:
-            plt.axvline(x=line)
+            ax.axvline(x=line, color="gray", linestyle="--")
 
+    # Save the updated plot and the plot state
     plt.savefig(filename)
+    with open(filename + ".pkl", "wb") as f:
+        pickle.dump((fig, ax, ax2), f)
     
     
 def place_agents(grid_map, agents):
@@ -220,6 +224,8 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
     x = [i + 1 for i in range(n_games)]
     filename = f'{agent_to_train}_training.png'
     plot_learning_curve(x, scores[agent_to_train], eps_history[agent_to_train], filename)
+
+    return scores[agent_to_train], eps_history[agent_to_train]
     
 def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weights, grid_file_path, epsilon=0.1):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
@@ -304,13 +310,38 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
+        cumulative_scores = {'vip': [], 'defender': [], 'attacker': []}
+        cumulative_eps_history = {'vip': [], 'defender': [], 'attacker': []}
+
         for cycle in range(args.cycles):
-            print(f"TRAINING VIP (Cycle: {cycle}/{args.cycles})")
-            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="vip", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
-            print(f"TRAINING DEFENDER (Cycle: {cycle}/{args.cycles})")
-            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="defender", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
-            print(f"TRAINING ATTACKER (Cycle: {cycle}/{args.cycles})")
-            train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, agent_to_train="attacker", baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
-        print("Training Complete")
+            print(f"Cycle {cycle + 1} of {args.cycles}")
+
+            print(f"TRAINING VIP (Cycle {cycle + 1})")
+            vip_scores, vip_eps = train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 
+                                        args.map, args.episodes, agent_to_train="vip", 
+                                        baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+            cumulative_scores['vip'].extend(vip_scores)
+            cumulative_eps_history['vip'].extend(vip_eps)
+            plot_learning_curve(list(range(1, len(cumulative_scores['vip']) + 1)), cumulative_scores['vip'], cumulative_eps_history['vip'], "vip_training")
+
+            print(f"TRAINING DEFENDER (Cycle {cycle + 1})")
+            defender_scores, defender_eps = train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 
+                                                args.map, args.episodes, agent_to_train="defender", 
+                                                baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+            cumulative_scores['defender'].extend(defender_scores)
+            cumulative_eps_history['defender'].extend(defender_eps)
+            plot_learning_curve(list(range(1, len(cumulative_scores['defender']) + 1)), cumulative_scores['defender'], cumulative_eps_history['defender'], "defender_training")
+
+            print(f"TRAINING ATTACKER (Cycle {cycle + 1})")
+            attacker_scores, attacker_eps = train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 
+                                                args.map, args.episodes, agent_to_train="attacker", 
+                                                baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
+            cumulative_scores['attacker'].extend(attacker_scores)
+            cumulative_eps_history['attacker'].extend(attacker_eps)
+            plot_learning_curve(list(range(1, len(cumulative_scores['attacker']) + 1)), cumulative_scores['attacker'], cumulative_eps_history['attacker'], "attacker_training")
+
+        print("Training complete. Plots updated across cycles.")
+
+
     elif args.mode == 'trial':
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)
