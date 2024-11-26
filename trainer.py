@@ -106,6 +106,9 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
     scores = {'vip': [], 'attacker': [], 'defender': []}
     eps_history = {'vip': [], 'attacker': [], 'defender': []}
 
+    loss_attacker = 0
+    loss_defender = 0
+    loss_vip = 0
 
     for i in range(n_games):
         truncated = False
@@ -169,21 +172,28 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
                     attacker_position = env.attacker_positions[k]
                     if env.attacker_positions[k] != env.dead_cell:
                         attacker_agent.store_transition(individual_state(observation, attacker_position, env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, attacker_position, env.grid_width), truncated, attacker_position)
-                attacker_agent.learn()
+                loss_attacker_i = attacker_agent.learn()
+                if loss_attacker_i is not None:
+                    loss_attacker += loss_attacker_i
 
             elif agent_to_train == "defender":
                 for k in range(env.number_of_defenders):
                     defender_position = env.defender_positions[k]
                     if env.defender_positions[k] != env.dead_cell:
                         defender_agent.store_transition(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), truncated, defender_position)
-                defender_agent.learn()
+                loss_defender_i = defender_agent.learn()
+                if loss_defender_i is not None:
+                    loss_defender += loss_defender_i
+                
 
             elif agent_to_train == "vip":
                 for k in range(env.number_of_vips):
                     vip_position = env.vip_positions[k]
                     if env.vip_positions[k] != env.dead_cell:
                         vip_agent.store_transition(individual_state(observation, vip_position, env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, vip_position, env.grid_width), truncated, vip_position)
-                vip_agent.learn()
+                loss_vip_i = vip_agent.learn()
+                if loss_vip_i is not None:
+                    loss_vip += loss_vip_i
             
             if truncated or terminated:
                 break
@@ -202,6 +212,8 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         print(f"  VIP: Score {score['vip']:.2f}, Avg Score {np.mean(scores['vip'][-100:]):.2f}, Epsilon {vip_agent.epsilon:.2f}")
         print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}, Epsilon {attacker_agent.epsilon:.2f}")
         print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}, Epsilon {defender_agent.epsilon:.2f}")
+        
+        print(f" Losses: Attacker {loss_attacker}, Defender {loss_defender}, VIP {loss_vip}")   
 
         if (i + 1) % 100 == 0:
             if agent_to_train == 'vip':

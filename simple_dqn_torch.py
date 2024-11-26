@@ -114,8 +114,10 @@ class Agent:
         q_target = reward_batch + self.gamma * T.max(q_next, dim=1)[0]
 
         loss = self.Q_eval.loss(q_target, q_eval).to(self.Q_eval.device)
+        loss_copy = loss
         loss.backward()
         self.Q_eval.optimizer.step()
 
         # Decay epsilon
         self.epsilon = max(self.epsilon - self.eps_dec, self.eps_min)
+        return  loss_copy.item()
