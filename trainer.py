@@ -88,6 +88,17 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
 
     if os.path.exists(path_to_defender_weights):
         defender_agent.load_weights(path_to_defender_weights)
+
+    # Adjust epsilon for agents not being trained
+    if agent_to_train == "vip":
+        attacker_agent.epsilon = 0.1
+        defender_agent.epsilon = 0.1
+    elif agent_to_train == "attacker":
+        vip_agent.epsilon = 0.1
+        defender_agent.epsilon = 0.1
+    elif agent_to_train == "defender":
+        vip_agent.epsilon = 0.1
+        attacker_agent.epsilon = 0.1
         
     print(env.number_of_attackers)
     print(env.number_of_defenders)
@@ -122,32 +133,20 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
             for k in range(env.number_of_attackers):
                 if env.attacker_positions[k] == env.dead_cell:
                     attacker_actions.append(-1)
-                elif agent_to_train == "attacker":
-                    attacker_actions.append(attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width)))
-                elif os.path.exists('attacker_agent_weights.pth'):
-                    attacker_actions.append(attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width)))
                 else:
-                    attacker_actions.append(np.random.randint(0, attacker_agent.n_actions))
+                    attacker_actions.append(attacker_agent.choose_action(individual_state(observation, env.attacker_positions[k], env.grid_width)))
 
             for k in range(env.number_of_defenders):
                 if env.defender_positions[k] == env.dead_cell:
                     defender_actions.append(-1)
-                elif agent_to_train == "defender":
-                    defender_actions.append(defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width)))
-                elif os.path.exists('defender_agent_weights.pth'):
-                    defender_actions.append(defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width)))
                 else:
-                    defender_actions.append(np.random.randint(0, defender_agent.n_actions))
+                    defender_actions.append(defender_agent.choose_action(individual_state(observation, env.defender_positions[k], env.grid_width)))
 
             for k in range(env.number_of_vips):
                 if env.vip_positions[k] == env.dead_cell:
                     vip_actions.append(-1)
-                elif agent_to_train == "vip":
-                    vip_actions.append(vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width)))
-                elif os.path.exists('vip_agent_weights.pth'):
-                    vip_actions.append(vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width)))
                 else:
-                    vip_actions.append(np.random.randint(0, vip_agent.n_actions))
+                    vip_actions.append(vip_agent.choose_action(individual_state(observation, env.vip_positions[k], env.grid_width)))
 
             actions = (attacker_actions, defender_actions, vip_actions)
 
