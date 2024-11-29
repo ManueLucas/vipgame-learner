@@ -59,9 +59,9 @@ class Agent:
     def store_transition(self, state, action, reward, state_, done, position):
         
         index = self.mem_cntr % self.mem_size
-        if position not in self.states_previously_seen:
-            self.states_previously_seen.add(position)
-            reward += 1
+        # if position not in self.states_previously_seen:
+        #     self.states_previously_seen.add(position)
+        #     reward += 1
         self.state_memory[index] = state
         self.new_state_memory[index] = state_
         self.reward_memory[index] = reward
