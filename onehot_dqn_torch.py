@@ -42,7 +42,6 @@ class Agent:
 
         # Initialize the Deep Q-Network
         self.Q_eval = DeepQNetwork(self.lr, n_actions=self.n_actions, input_dims=input_dims, fc1_dims=256, fc2_dims=256)
-
         # Initialize replay buffer
         self.state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.new_state_memory = np.zeros((self.mem_size, *input_dims), dtype=np.float32)

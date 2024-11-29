@@ -91,7 +91,7 @@ class VipGame(gym.Env):
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
             print(f'something went wrong, {action} is not a valid action for {agent_type}') 
-            return position, -1  # Invalid action, negative reward
+            return position, -100  # Invalid action, negative reward
 
         # Calculate the new position based on the action taken
         delta = moveset[action]
@@ -125,7 +125,7 @@ class VipGame(gym.Env):
                     self.live_attackers[agent_id] = False
                     self.defender_positions[defender_index] = self.dead_cell
                     # Move attacker to the death cell
-                    return self.dead_cell, 5  # high reward for killing defender
+                    return self.dead_cell, 0  # no reward for killing defender
 
                 elif agent_type == DEFENDER:
                     # Move attacker to the death cell
@@ -142,9 +142,9 @@ class VipGame(gym.Env):
             if (self.grid[new_position] not in collisionset):
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
-                return new_position, -.01  #agent gets negative reward either way
+                return new_position, 0  #agent gets negative reward either way
 
-        return position, -.01
+        return position, 0
 
     def attacker_move(self, action, agent_id):
         # Update attacker position and get reward for the move
@@ -189,17 +189,27 @@ class VipGame(gym.Env):
         # Increment the timestep counter
         self.timesteps_elapsed += 1
         # Check if the maximum number of timesteps has been reached
-        truncated = self.timesteps_elapsed >= self.max_timesteps
+        truncated = False
+        if self.timesteps_elapsed >= self.max_timesteps: #time runs out, vip and defenders win
+            attacker_reward = [x - 20 for x in attacker_reward] #penalize attacker for not winning
+            defender_reward = [x + 10 for x in defender_reward] #reward defender for winning
+            vip_reward = [x + 10 for x in vip_reward] #reward vip attacker for winning
+            truncated = True
+            
         terminated = False
+
         # Check if the game is over (either the VIP is dead or all attackers are dead)
         if self.number_of_vip_dead == self.number_of_vips:
             terminated = True
             attacker_reward = [x + 10 for x in attacker_reward] #give entire team a huge reward
             vip_reward = [x - 20 for x in vip_reward] 
-        elif self.number_of_attacker_dead == self.number_of_attackers:
+            defender_reward = [x - 10 for x in defender_reward]
+        elif self.number_of_attacker_dead == self.number_of_attackers: #defenders eliminate all attackers
             terminated = True
             defender_reward = [x + 10 for x in defender_reward]
             vip_reward = [x + 10 for x in vip_reward] 
+            attacker_reward = [x - 10 for x in attacker_reward] #penalize attacker for not winning
+
         
         defenderside_vision = self.line_of_sight(self.defender_positions + self.vip_positions)
         attackerside_vision = self.line_of_sight(self.attacker_positions)
@@ -250,12 +260,11 @@ class VipGame(gym.Env):
     def get_moveset(self, agent_type):
         # Defender has access to the full moveset (all 8 directions)
         # Attacker has access to the full moveset (all 8 directions)
-        if agent_type == ATTACKER or agent_type == DEFENDER:
-            return list(ACTIONS.values())
+        # if agent_type == ATTACKER or agent_type == DEFENDER:
+        #     return list(ACTIONS.values())
         # VIP has a limited moveset (up, down, left, right)
-        else:
-            return [ACTIONS['UP'], ACTIONS['DOWN'], ACTIONS['LEFT'], ACTIONS['RIGHT']]
-
+        return list(ACTIONS.values())
+    
     def reset(self):
         # Reset the environment to its initial state
         self.timesteps_elapsed = 0

@@ -56,26 +56,26 @@ class Agent:
     def save_weights(self, file_path='dqn_model_weights.pth'):
         T.save(self.Q_eval.state_dict(), file_path)
 
-    def store_transition(self, state, action, reward, state_, done, position):
+    def store_transition(self, state, action, reward, state_, done, position, teamVector):
         
         index = self.mem_cntr % self.mem_size
         # if position not in self.states_previously_seen:
         #     self.states_previously_seen.add(position)
         #     reward += 1
-        self.state_memory[index] = state
-        self.new_state_memory[index] = state_
+        self.state_memory[index] = np.hstack([state, teamVector], dtype='float32')
+        self.new_state_memory[index] = np.hstack([state_, teamVector], dtype='float32')
         self.reward_memory[index] = reward
         self.action_memory[index] = action
         self.terminal_memory[index] = done
 
         self.mem_cntr += 1
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, teamVector):
         """
         Dynamically choose an action based on the current action space size.
         """
         if np.random.random() > self.epsilon:
-            state = T.tensor(observation).to(self.Q_eval.device)
+            state = T.tensor(np.hstack([observation, teamVector], dtype='float32')).to(self.Q_eval.device)
             actions = self.Q_eval.forward(state)
             action = T.argmax(actions).item()
         else:
