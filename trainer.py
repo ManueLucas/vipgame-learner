@@ -283,7 +283,7 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         time.sleep(0.05)  # Wait for 100ms
 
 def trainPPO():
-    grid_map = np.loadtxt(args.map, delimiter=",")
+    grid_map = np.loadtxt(args.map, delimiter=",", dtype=np.float64)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = True

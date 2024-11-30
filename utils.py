@@ -7,14 +7,15 @@ class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, net_width):
         super(Actor, self).__init__()
 
-        self.l1 = nn.Linear(state_dim, net_width)
-        self.l2 = nn.Linear(net_width, net_width)
-        self.l3 = nn.Linear(net_width, action_dim)
+        self.l1 = nn.Linear(state_dim, net_width, dtype=torch.double)
+        self.l2 = nn.Linear(net_width, net_width, dtype=torch.double)
+        self.l3 = nn.Linear(net_width, action_dim, dtype=torch.double)
 
     def forward(self, state):
-        n = torch.tanh(self.l1(state))
+        n = torch.tanh(self.l1(state + 1e-10))
+        
         if np.isnan(n.cpu().detach().numpy()).any():
-            print(state.cpu().detach().numpy())
+            print(self.l1(state))
             print('nan in n')
         # else:
         #     print(state.cpu().detach().numpy())
@@ -35,9 +36,9 @@ class Critic(nn.Module):
     def __init__(self, state_dim,net_width):
         super(Critic, self).__init__()
 
-        self.C1 = nn.Linear(state_dim, net_width)
-        self.C2 = nn.Linear(net_width, net_width)
-        self.C3 = nn.Linear(net_width, 1)
+        self.C1 = nn.Linear(state_dim, net_width, dtype=torch.double)
+        self.C2 = nn.Linear(net_width, net_width, dtype=torch.double)
+        self.C3 = nn.Linear(net_width, 1, dtype=torch.double)
 
     def forward(self, state):
         v = torch.relu(self.C1(state))
