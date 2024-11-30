@@ -18,16 +18,16 @@ class PPO_discrete():
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.lr)
 
         '''Build Trajectory holder'''
-        self.s_hoder = np.zeros((self.T_horizon, self.state_dim), dtype=np.float32)
+        self.s_hoder = np.zeros((self.T_horizon, self.state_dim), dtype=np.float64)
         self.a_hoder = np.zeros((self.T_horizon, 1), dtype=np.int64)
-        self.r_hoder = np.zeros((self.T_horizon, 1), dtype=np.float32)
-        self.s_next_hoder = np.zeros((self.T_horizon, self.state_dim), dtype=np.float32)
-        self.logprob_a_hoder = np.zeros((self.T_horizon, 1), dtype=np.float32)
+        self.r_hoder = np.zeros((self.T_horizon, 1), dtype=np.float64)
+        self.s_next_hoder = np.zeros((self.T_horizon, self.state_dim), dtype=np.float64)
+        self.logprob_a_hoder = np.zeros((self.T_horizon, 1), dtype=np.float64)
         self.done_hoder = np.zeros((self.T_horizon, 1), dtype=np.bool_)
         self.dw_hoder = np.zeros((self.T_horizon, 1), dtype=np.bool_)
 
     def select_action(self, s, deterministic):
-        s = torch.from_numpy(s).float().to(self.dvc)
+        s = torch.from_numpy(s).double().to(self.dvc)
         with torch.no_grad():
             pi = self.actor.pi(s, softmax_dim=0)
             if deterministic:
@@ -66,7 +66,7 @@ class PPO_discrete():
                 adv.append(advantage)
             adv.reverse()
             adv = copy.deepcopy(adv[0:-1])
-            adv = torch.tensor(adv).unsqueeze(1).float().to(self.dvc)
+            adv = torch.tensor(adv).unsqueeze(1).double().to(self.dvc)
             td_target = adv + vs
             if self.adv_normalization:
                 adv = (adv - adv.mean()) / ((adv.std() + 1e-4))  #sometimes helps

@@ -108,7 +108,7 @@ class VipGame(gym.Env):
                 vip_index = self.vip_positions.index(new_position)
                 self.vip_positions[vip_index] = self.dead_cell
                 self.number_of_vip_dead += 1
-                return new_position, 10
+                return new_position, 1
             
             # when a defender and an attacker meet each other, both die
             if (self.grid[new_position] in killset):
@@ -125,7 +125,7 @@ class VipGame(gym.Env):
                     self.live_attackers[agent_id] = False
                     self.defender_positions[defender_index] = self.dead_cell
                     # Move attacker to the death cell
-                    return self.dead_cell, 5  # high reward for killing defender
+                    return self.dead_cell, 0  # high reward for killing defender
 
                 elif agent_type == DEFENDER:
                     # Move attacker to the death cell
@@ -134,7 +134,7 @@ class VipGame(gym.Env):
                     self.live_attackers[attacker_index] = False
                     self.attacker_positions[attacker_index] = self.dead_cell
                     # Move defender to the death cell
-                    return self.dead_cell, 5 # high reward for killing attacker
+                    return self.dead_cell, 0.5 # high reward for killing attacker
                 
                 print("something went wrong, neither attacker nor defender were killed")
                 return new_position, 1
@@ -142,9 +142,9 @@ class VipGame(gym.Env):
             if (self.grid[new_position] not in collisionset):
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
-                return new_position, -.01  #agent gets negative reward either way
+                return new_position, 0  
 
-        return position, -.01
+        return position, 0
 
     def attacker_move(self, action, agent_id):
         # Update attacker position and get reward for the move
@@ -194,12 +194,12 @@ class VipGame(gym.Env):
         # Check if the game is over (either the VIP is dead or all attackers are dead)
         if self.number_of_vip_dead == self.number_of_vips:
             terminated = True
-            attacker_reward = [x + 10 for x in attacker_reward] #give entire team a huge reward
-            vip_reward = [x - 20 for x in vip_reward] 
+            attacker_reward = [x + 1 for x in attacker_reward] #give entire team a huge reward
+            vip_reward = [x - 2 for x in vip_reward] 
         elif self.number_of_attacker_dead == self.number_of_attackers:
             terminated = True
-            defender_reward = [x + 10 for x in defender_reward]
-            vip_reward = [x + 10 for x in vip_reward] 
+            defender_reward = [x + 1 for x in defender_reward]
+            vip_reward = [x + 1 for x in vip_reward] 
         
         defenderside_vision = self.line_of_sight(self.defender_positions + self.vip_positions)
         attackerside_vision = self.line_of_sight(self.attacker_positions)
