@@ -4,7 +4,9 @@ import argparse
 from actor_critic import Agent
 from environment import VipGame  # Assuming you have this environment implemented
 from utils import plot_learning_curve
+from torch.utils.tensorboard import SummaryWriter
 import time
+import datetime
 
 def place_agents(grid_map, agents):
     valid_positions = np.argwhere(grid_map == 0)
@@ -89,6 +91,12 @@ def train_actor_critic(path_to_weights,grid_file_path,n_games,agent_to_train,ran
         if (i + 1) % 10 == 0:
             agent.save_models(file_path=f"{agent_to_train}_weights.weights.h5")
 
+        # Log to TensorBoard
+        writer.add_scalar('Reward', reward, i)
+        writer.add_scalar('Score', score, i)
+        writer.add_scalar('Avg score', avg_score, i)
+    writer.close()
+
     # Save weights after training
     agent.save_models(file_path=f"{agent_to_train}_weights.weights.h5")
 
@@ -146,6 +154,14 @@ if __name__ == "__main__":
     parser.add_argument("--epsilon", type=float, default=0.1, help="Epsilon value for trials")
     args = parser.parse_args()
 
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_name = f"{args.agent}_{args.mode}_{current_time}"
+
+    writer = SummaryWriter(f"runs/{run_name}")
+    writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{k}|{v}|" for k, v in vars(args).items()])),
+    )
     if args.mode == "train":
         scores = train_actor_critic(
             path_to_weights=f"{args.agent}_weights.h5",

@@ -1,5 +1,5 @@
 import numpy as np
-from tensorflow.keras.optimizers import Adam # type: ignore
+# from tensorflow.keras.optimizers import Adam # type: ignore
 from networks import ActorCriticNetwork
 import torch
 import torch.nn as nn
