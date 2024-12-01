@@ -6,6 +6,8 @@ import pygame
 
 
 def individual_state(state, position, grid_width): #use this function to generate a state suitable for the agent to learn from. This function will take in a state and a position and return a state with the agent's position marked with a 5
+    if position == environment.DEADCELL: #if agent is dead, the returned state has no 5 tile discerning it from other agents
+        return state
     state = state.copy()
     state[position[0]*grid_width + position[1]] = 5
     state = state.astype(dtype="float32", order='K', casting='unsafe', subok=True, copy=True)

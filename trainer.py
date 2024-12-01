@@ -306,13 +306,22 @@ def trainPPO():
     args.state_dim = grid_map.size
     args.action_dim = env.vip_action_space
     args.max_e_steps = env.max_timesteps
+    args.agent_name='vip'
     
     vip_agent = PPO_discrete(**vars(args))
     
     args.action_dim = env.attacker_defender_action_space 
     
+    args.agent_name='attacker'
     attacker_agent = PPO_discrete(**vars(args))
+    
+    args.agent_name='defender'
     defender_agent = PPO_discrete(**vars(args))
+    
+    if args.Loadmodel:
+        vip_agent.load(args.ModelIdex)
+        attacker_agent.load(args.ModelIdex)
+        defender_agent.load(args.ModelIdex)
     
     scores = {'vip': [], 'attacker': [], 'defender': []}
     
@@ -323,7 +332,6 @@ def trainPPO():
         terminated = False
         done = False
         observation = env.reset().flatten()
-        observation = (observation - 0) / (5 - 0)
 
         score = {'vip': 0, 'attacker': 0, 'defender': 0}
 
@@ -331,8 +339,6 @@ def trainPPO():
         # # env.render(grid_map)
         episode_number += 1
         while not done:
-
-            done = truncated or terminated
 
             # attacker_actions = [attacker_agent.choose_action(observation) for _ in range(1)]
             # attacker_actions = [attacker_agent.choose_action(individual_state(observation, env.attacker_positions[i], env.grid_width)) for i in range(1)]
@@ -352,17 +358,22 @@ def trainPPO():
 
             for j in range(env.number_of_attackers):
                 if env.attacker_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
                     attacker_actions.append(-1)
                     attacker_log_probs.append(None) 
                     
                 else:
                     attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
-                    attacker_agent_action, attacker_logprob = attacker_agent.select_action(attacker_state, deterministic=False)
+                    attacker_agent_action, attacker_log_prob = attacker_agent.select_action(attacker_state, deterministic=False)
                     attacker_actions.append(attacker_agent_action)
-                    attacker_log_probs.append(attacker_logprob)
+                    attacker_log_probs.append(attacker_log_prob)
+                    if(attacker_log_prob == 0):
+                        print(f'detected very small attacker action probability {attacker_log_prob}')
+
 
             for j in range(env.number_of_defenders):
                 if env.defender_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
                     defender_actions.append(-1)
                     defender_log_probs.append(None)
 
@@ -371,9 +382,13 @@ def trainPPO():
                     defender_agent_action, defender_log_prob = defender_agent.select_action(defender_state, deterministic=False)
                     defender_actions.append(defender_agent_action)
                     defender_log_probs.append(defender_log_prob)
+                    if(defender_log_prob == 0):
+                        print(f'detected very small defender action probability {defender_log_prob}')
+
 
             for j in range(env.number_of_vips):
                 if env.vip_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
                     vip_actions.append(-1)
                     vip_log_probs.append(None)
 
@@ -382,6 +397,8 @@ def trainPPO():
                     vip_agent_action, vip_log_prob = vip_agent.select_action(vip_state, deterministic=False)
                     vip_actions.append(vip_agent_action)
                     vip_log_probs.append(vip_log_prob)
+                    if(vip_log_prob == 0):
+                        print(f'detected very small vip action probability {vip_log_prob}')
 
             actions = (attacker_actions, defender_actions, vip_actions)
 
@@ -394,27 +411,24 @@ def trainPPO():
             #     print(f'defender_reward: {defender_reward}')
             #     print(f'vip_reward: {vip_reward}')
             observation_ = fully_visible_state.flatten()
-            observation_ = (observation_ - 0) / (5 - 0) #normalizing observation in an attempt to avoid nan error during softmax
 
 
             score['attacker'] += np.mean(attacker_reward)
             score['defender'] += np.mean(defender_reward)
             score['vip'] += np.mean(vip_reward)
+            done = truncated or terminated
             
             for k in range(env.number_of_attackers):
                 attacker_position = env.attacker_positions[k]
-                if env.attacker_positions[k] != env.dead_cell:
-                    attacker_agent.put_data(individual_state(observation, attacker_position, env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, attacker_position, env.grid_width), attacker_log_probs[k], done, terminated, idx = traj_length) #terminate is equivalent to dead-win in the ppo code
+                attacker_agent.put_data(individual_state(observation, attacker_position, env.grid_width), actions[0][k], attacker_reward[k], individual_state(observation_, attacker_position, env.grid_width), attacker_log_probs[k], done, terminated, idx = traj_length) #terminate is equivalent to dead-win in the ppo code
             
             for k in range(env.number_of_defenders):
                 defender_position = env.defender_positions[k]
-                if env.defender_positions[k] != env.dead_cell:
-                    defender_agent.put_data(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), defender_log_probs[k], done, terminated, idx = traj_length)
+                defender_agent.put_data(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), defender_log_probs[k], done, terminated, idx = traj_length)
             
             for k in range(env.number_of_vips):
                 vip_position = env.vip_positions[k]
-                if env.vip_positions[k] != env.dead_cell:
-                    vip_agent.put_data(individual_state(observation, vip_position, env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, vip_position, env.grid_width), vip_log_probs[k], done, terminated, idx = traj_length)
+                vip_agent.put_data(individual_state(observation, vip_position, env.grid_width), actions[2][k], vip_reward[k], individual_state(observation_, vip_position, env.grid_width), vip_log_probs[k], done, terminated, idx = traj_length)
             
             traj_length += 1
             total_steps += 1
@@ -430,6 +444,7 @@ def trainPPO():
                 defender_agent.save(total_steps)
                 vip_agent.save(total_steps)
                 
+
             observation = observation_
         
         scores['vip'].append(score['vip'])
@@ -441,6 +456,117 @@ def trainPPO():
         print(f"  VIP: Score {score['vip']:.2f}, Avg Score {np.mean(scores['vip'][-100:]):.2f}")
         print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}")
         print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}")
+
+def trialPPO():
+    numToAction = list(environment.ACTIONS.keys())
+    grid_map = np.loadtxt(args.map, delimiter=",", dtype=np.float64)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    agents = {
+        "2": np.count_nonzero(grid_map == 2), # count number of the number 2 (vip) in the grid map
+        "3": np.count_nonzero(grid_map == 3), # defender
+        "4": np.count_nonzero(grid_map == 4), # attacker
+    }
+    
+    if(args.random):
+        grid_map[grid_map > 1] = 0
+        grid_map = place_agents(grid_map, agents)
+        
+    env = environment.VipGame(grid_map=grid_map)
+    
+    print(env.number_of_attackers)
+    print(env.number_of_defenders)
+    print(env.number_of_vips)
+    args.state_dim = grid_map.size
+    args.action_dim = env.vip_action_space
+    args.max_e_steps = env.max_timesteps
+    
+    args.agent_name='vip'
+    vip_agent = PPO_discrete(**vars(args))
+    
+    args.action_dim = env.attacker_defender_action_space 
+    
+    args.agent_name='attacker'
+    attacker_agent = PPO_discrete(**vars(args))
+    
+    args.agent_name='defender'
+    defender_agent = PPO_discrete(**vars(args))
+    
+    if args.Loadmodel:
+        vip_agent.load(args.ModelIdex)
+        attacker_agent.load(args.ModelIdex)
+        defender_agent.load(args.ModelIdex)
+    
+    scores = {'vip': [], 'attacker': [], 'defender': []}
+    
+    while True:
+        truncated = False
+        terminated = False
+        done = False
+        observation = env.reset().flatten()
+
+
+        # print(f"observation type: {observation.dtype}")
+        # # env.render(grid_map)
+        while not done:
+            
+            attacker_actions = []
+            defender_actions = []
+            vip_actions = []
+
+            for j in range(env.number_of_attackers):
+                if env.attacker_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
+                    attacker_actions.append(-1)                    
+                else:
+                    attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
+                    attacker_agent_action, attacker_log_prob = attacker_agent.select_action(attacker_state, deterministic=False)
+                    attacker_actions.append(attacker_agent_action)
+                    print(f'attacker action: {numToAction[attacker_agent_action]}')
+                    if(attacker_log_prob == 0):
+                        print(f'detected very small attacker action probability {attacker_log_prob}')
+
+
+            for j in range(env.number_of_defenders):
+                if env.defender_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
+                    defender_actions.append(-1)
+
+                else:   
+                    defender_state = individual_state(observation, env.defender_positions[j], env.grid_width)
+                    defender_agent_action, defender_log_prob = defender_agent.select_action(defender_state, deterministic=False)
+                    defender_actions.append(defender_agent_action)
+                    if(defender_log_prob == 0):
+                        print(f'detected very small defender action probability {defender_log_prob}')
+
+
+            for j in range(env.number_of_vips):
+                if env.vip_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
+                    vip_actions.append(-1)
+
+                else:
+                    vip_state = individual_state(observation, env.vip_positions[j], env.grid_width)
+                    vip_agent_action, vip_log_prob = vip_agent.select_action(vip_state, deterministic=False)
+                    vip_actions.append(vip_agent_action)
+                    if(vip_log_prob == 0):
+                        print(f'detected very small vip action probability {vip_log_prob}')
+
+            actions = (attacker_actions, defender_actions, vip_actions)
+
+            fully_visible_state, (defenderside_vision, attackerside_vision), \
+            (defender_reward, attacker_reward, vip_reward), \
+            (defender_positions, attacker_positions, vip_positions), truncated, terminated = env.step(actions)
+            
+            observation_ = fully_visible_state.flatten()
+                
+            done = truncated or terminated
+
+            observation = observation_
+            env.render(fully_visible_state)
+            time.sleep(0.05)  # Wait for 100ms
 
 
     
@@ -455,6 +581,7 @@ if __name__ == '__main__':
     parser.add_argument('--random', type=bool, default=False, help='randomizes spawn points if set to true')
     parser.add_argument('--Loadmodel', type=str2bool, default=False, help='Load pretrained model or Not')
     parser.add_argument('--dvc', type=str, default='cpu', help='running device: cuda or cpu')
+    parser.add_argument('--ModelIdex', type=int, default=300000, help='which model to load')
 
     parser.add_argument('--seed', type=int, default=209, help='random seed')
     parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
@@ -487,4 +614,6 @@ if __name__ == '__main__':
         else:
             train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, args.episodes, baseline_epsilon=args.epsilon, randomize_spawn_points=args.random)
     elif args.mode == 'trial':
+        if args.algorithm == 'ppo':
+            trialPPO()
         trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', args.map, epsilon=args.epsilon)

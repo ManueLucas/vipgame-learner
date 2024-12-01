@@ -12,24 +12,20 @@ class Actor(nn.Module):
         self.l3 = nn.Linear(net_width, action_dim, dtype=torch.double)
 
     def forward(self, state):
-        n = torch.tanh(self.l1(state + 1e-10))
-        
-        if np.isnan(n.cpu().detach().numpy()).any():
-            print(self.l1(state))
-            print('nan in n')
+        n = torch.tanh(self.l1(state + 1e-8))
         # else:
         #     print(state.cpu().detach().numpy())
         n = torch.tanh(self.l2(n))
-        if np.isnan(n.cpu().detach().numpy()).any():
-            print('nan in n')
         return n
 
     def pi(self, state, softmax_dim=0):
         n = self.forward(state)  # Forward pass
         logits = self.l3(n)  # Compute logits
         # Apply stabilization trick before softmax
-        logits_stable = logits - torch.max(logits, dim=softmax_dim, keepdim=True).values
-        prob = F.softmax(logits_stable, dim=softmax_dim)
+        # logits_stable = logits - torch.max(logits, dim=softmax_dim, keepdim=True).values
+        prob = F.softmax(logits, dim=softmax_dim)
+        if torch.any(torch.isclose(prob, torch.tensor(0.0, dtype=prob.dtype), atol=1e-8)):
+            print("Probability contains zero value")
         return prob
 
 class Critic(nn.Module):

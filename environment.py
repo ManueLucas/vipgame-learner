@@ -22,7 +22,7 @@ VIP = 2
 DEFENDER = 3
 ATTACKER = 4
 SELF = 5
-  
+DEADCELL = (-100, -100)
 
 class VipGame(gym.Env):
     def __init__(self, grid_map, max_timesteps=500):
@@ -164,6 +164,8 @@ class VipGame(gym.Env):
     def step(self, actions): #we expect a tuple of 3 lists of actions, one for each team
         # Perform actions for each agent (attacker, defender, VIP)
         attacker_actions, defender_actions, vip_actions = actions
+        terminated = False
+        truncated = False
         
         attacker_reward = []
         defender_reward = []
@@ -189,16 +191,24 @@ class VipGame(gym.Env):
         # Increment the timestep counter
         self.timesteps_elapsed += 1
         # Check if the maximum number of timesteps has been reached
-        truncated = self.timesteps_elapsed >= self.max_timesteps
-        terminated = False
+        if self.timesteps_elapsed >= self.max_timesteps:
+            truncated = True
+            defender_reward = [x + 1 for x in defender_reward]
+            attacker_reward = [x - 1 for x in attacker_reward]
+            vip_reward = [x + 1 for x in vip_reward]
+            
+            
         # Check if the game is over (either the VIP is dead or all attackers are dead)
         if self.number_of_vip_dead == self.number_of_vips:
             terminated = True
+            defender_reward = [x - 1 for x in defender_reward]
             attacker_reward = [x + 1 for x in attacker_reward] #give entire team a huge reward
-            vip_reward = [x - 2 for x in vip_reward] 
+            vip_reward = [x - 1 for x in vip_reward] 
+        
         elif self.number_of_attacker_dead == self.number_of_attackers:
             terminated = True
             defender_reward = [x + 1 for x in defender_reward]
+            attacker_reward = [x - 1 for x in attacker_reward]
             vip_reward = [x + 1 for x in vip_reward] 
         
         defenderside_vision = self.line_of_sight(self.defender_positions + self.vip_positions)

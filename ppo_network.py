@@ -90,7 +90,7 @@ class PPO_discrete():
                 '''actor update'''
                 prob = self.actor.pi(s[index], softmax_dim=1)
                 if(torch.isnan(prob).any()):
-                    print('nan in prob, skipping update')
+                    # print('nan in prob, skipping update')
                     continue
                 entropy = Categorical(prob).entropy().sum(0, keepdim=True)
                 prob_a = prob.gather(1, a[index])
@@ -125,9 +125,9 @@ class PPO_discrete():
         self.dw_hoder[idx] = dw
 
     def save(self, episode):
-        torch.save(self.critic.state_dict(), "./model/ppo_critic{}.pth".format(episode))
-        torch.save(self.actor.state_dict(), "./model/ppo_actor{}.pth".format(episode))
+        torch.save(self.critic.state_dict(), "./model/{}_ppo_critic{}.pth".format(self.agent_name, episode))
+        torch.save(self.actor.state_dict(), "./model/{}_ppo_actor{}.pth".format(self.agent_name, episode))
 
     def load(self, episode):
-        self.critic.load_state_dict(torch.load("./model/ppo_critic{}.pth".format(episode), map_location=self.dvc))
-        self.actor.load_state_dict(torch.load("./model/ppo_actor{}.pth".format(episode), map_location=self.dvc))
+        self.critic.load_state_dict(torch.load("./model/{}_ppo_critic{}.pth".format(self.agent_name, episode), map_location=self.dvc))
+        self.actor.load_state_dict(torch.load("./model/{}_ppo_actor{}.pth".format(self.agent_name, episode), map_location=self.dvc))
