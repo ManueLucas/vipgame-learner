@@ -1,28 +1,18 @@
-import os
-import tensorflow.keras as keras # type: ignore
-from tensorflow.keras.layers import Dense # type: ignore
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
-class ActorCriticNetwork(keras.Model):
-    def __init__(self, n_actions, fc1_dims=1024, fc2_dims=512,
-            name='actor_critic', chkpt_dir='tmp/actor_critic'):
+class ActorCriticNetwork(nn.Module):
+    def __init__(self, n_actions, input_dim=465):
         super(ActorCriticNetwork, self).__init__()
-        self.fc1_dims = fc1_dims
-        self.fc2_dims = fc2_dims
-        self.n_actions = n_actions
-        self.model_name = name
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'_ac')
+        self.fc1 = nn.Linear(input_dim, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.actor = nn.Linear(128, n_actions)
+        self.critic = nn.Linear(128, 1)
 
-        self.fc1 = Dense(self.fc1_dims, activation='relu')
-        self.fc2 = Dense(self.fc2_dims, activation='relu')
-        self.v = Dense(1, activation=None)
-        self.pi = Dense(n_actions, activation='softmax')
-
-    def call(self, state):
-        value = self.fc1(state)
-        value = self.fc2(value)
-
-        v = self.v(value)
-        pi = self.pi(value)
-
-        return v, pi
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        actor_output = self.actor(x)
+        critic_output = self.critic(x)
+        return critic_output, actor_output

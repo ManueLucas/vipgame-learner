@@ -1,9 +1,9 @@
 import numpy as np
-import tensorflow as tf
 from tensorflow.keras.optimizers import Adam # type: ignore
-import tensorflow_probability as tfp
 from networks import ActorCriticNetwork
 import torch
+import torch.nn as nn
+import torch.optim as optim
 
 class Agent:
     def __init__(self, alpha=0.0003, gamma=0.99, n_actions=2):
@@ -14,17 +14,17 @@ class Agent:
 
         self.actor_critic = ActorCriticNetwork(n_actions=n_actions)
 
-        self.actor_critic.compile(optimizer=Adam(learning_rate=alpha))
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=alpha)
     
     def choose_action(self, observation, valid_actions=None):
         
         observation = np.clip(observation, -1, 1)
-        state = tf.convert_to_tensor([observation], dtype=tf.float32)
+        state = torch.tensor(np.array(observation), dtype=torch.float32).unsqueeze(0)
 
         _, probs = self.actor_critic(state)
 
         # Normalize probabilities
-        probs = tf.nn.softmax(probs).numpy()[0]
+        probs = torch.softmax(probs, dim=-1).detach().numpy()[0]
 
         if valid_actions is not None:
             # Mask invalid actions
@@ -34,62 +34,56 @@ class Agent:
 
             if np.sum(probs) == 0:
                 # If all probabilities are zero, fallback to uniform distribution
+                print(f"Warning: All probabilities zero, fallback to uniform.")
                 probs[valid_actions] = 1 / len(valid_actions)
             else:
                 # Renormalize probabilities
                 probs /= np.sum(probs)
 
         # Create categorical distribution and sample an action
-        action_probabilities = tfp.distributions.Categorical(probs=probs)
-        action = action_probabilities.sample()
+        try:
+            action_distribution = torch.distributions.Categorical(torch.tensor(probs))
+            action = action_distribution.sample().item()
+        except Exception as e:
+            print(f"Error in action sampling: {e}, probs={probs}")
+            action = np.random.choice(valid_actions) if valid_actions else 0
 
         # Store and return action
-        action = tf.clip_by_value(action, 0, self.n_actions - 1).numpy()
         self.action = action
         return self.action
 
-
-    def save_models(self, file_path="actor_critic.weights.h5"):
-        if not file_path.endswith(".weights.h5"):
-            file_path += ".weights.h5"
+    def save_models(self, file_path="actor_critic.pth"):
         print(f"... saving models to {file_path} ...")
-        self.actor_critic.save_weights(file_path)
+        torch.save(self.actor_critic.state_dict(), file_path)
 
-    def load_models(self, file_path="actor_critic.weights.h5"):
-        if not file_path.endswith(".weights.h5"):
-            file_path += ".weights.h5"
+    def load_models(self, file_path="actor_critic.pth"):
         print(f"... loading models from {file_path} ...")
-        self.actor_critic.load_weights(file_path)
-
-
+        self.actor_critic.load_state_dict(torch.load(file_path))
         
     def learn(self, state, reward, state_, done):
-        state = tf.convert_to_tensor([state], dtype=tf.float32)
-        state_ = tf.convert_to_tensor([state_], dtype=tf.float32)
-        reward = tf.convert_to_tensor(reward, dtype=tf.float32)
+        state = torch.tensor(np.array(state), dtype=torch.float32)
+        state_ = torch.tensor(np.array(state_), dtype=torch.float32)
+        reward = torch.tensor(reward, dtype=torch.float32)
 
-        with tf.GradientTape(persistent=True) as tape:
-            state_value, probs = self.actor_critic(state)
-            state_value_, _ = self.actor_critic(state_)
-            state_value = tf.squeeze(state_value)
-            state_value_ = tf.squeeze(state_value_)
+        if self.action is None:
+            print("Error: Action not set, falling back to random.")
+            self.action = np.random.randint(0, self.n_actions)
 
-            action_probs = tfp.distributions.Categorical(probs=probs)
+        state_value, probs = self.actor_critic(state)
+        state_value_, _ = self.actor_critic(state_)
 
-            # Validate action range
-            if self.action >= self.n_actions or self.action < 0:
-                print(f"Invalid action: {self.action}. Skipping update.")
-                return
+        state_value = state_value.squeeze()
+        state_value_ = state_value_.squeeze()
 
-            log_prob = action_probs.log_prob(self.action)
+        action_probs = torch.distributions.Categorical(probs=torch.softmax(probs, dim=-1))
+        log_prob = action_probs.log_prob(torch.tensor(self.action, dtype=torch.int64))
 
-            delta = reward + self.gamma * state_value_ * (1 - int(done)) - state_value
-            actor_loss = -log_prob * delta
-            critic_loss = delta**2
-            total_loss = actor_loss + critic_loss
+        delta = reward + self.gamma * state_value_ * (1 - int(done)) - state_value
+        actor_loss = -log_prob * delta
+        critic_loss = delta**2
+        total_loss = actor_loss + critic_loss
 
-        gradient = tape.gradient(total_loss, self.actor_critic.trainable_variables)
-        clipped_gradient = [tf.clip_by_value(g, -1.0, 1.0) for g in gradient]
-        self.actor_critic.optimizer.apply_gradients(zip(
-            clipped_gradient, self.actor_critic.trainable_variables))
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        self.optimizer.step()
 

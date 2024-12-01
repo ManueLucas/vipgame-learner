@@ -6,18 +6,33 @@ from environment import VipGame  # Assuming you have this environment implemente
 from utils import plot_learning_curve
 import time
 
+def place_agents(grid_map, agents):
+    valid_positions = np.argwhere(grid_map == 0)
+    
+    np.random.shuffle(valid_positions)
+    
+    for agent_type, count in agents.items():
+        for _ in range(count):
+            
+            pos = valid_positions[0]
+            valid_positions = valid_positions[1:]
+            
+            grid_map[tuple(pos)] = agent_type
 
-def train_actor_critic(
-    path_to_weights,
-    grid_file_path,
-    n_games,
-    agent_to_train,
-    randomize_spawn_points=False
-):
+    return grid_map
+
+def train_actor_critic(path_to_weights,grid_file_path,n_games,agent_to_train,randomize_spawn_points=False):
+    agents = {
+        "2": 1, # vip
+        "3": 1, # defender
+        "4": 1, # attacker
+    }
+
     # Load grid map
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
     if randomize_spawn_points:
         grid_map[grid_map > 1] = 0
+        grid_map = place_agents(grid_map, agents)
 
     # Initialize environment and agent
     env = VipGame(grid_map=grid_map)
@@ -84,10 +99,7 @@ def train_actor_critic(
     return scores
 
 
-def trial_actor_critic(
-    path_to_weights,
-    grid_file_path
-):
+def trial_actor_critic(path_to_weights, grid_file_path):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
     env = VipGame(grid_map=grid_map)
 
