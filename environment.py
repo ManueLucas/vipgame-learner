@@ -79,19 +79,23 @@ class VipGame(gym.Env):
         # Find and set the initial positions of agents
         self.reset()
 
-
+    def calculateDistanceReward(self, position1, position2):
+        return 1/np.linalg.norm(np.array(position1) - np.array(position2))
+    
     def _move_agent(self, position, action, agent_type, agent_id):
+        reward = 0
         # do nothing if the agent is dead
         if position == self.dead_cell:
-            return position, 0
+            return position, reward
         
         moveset = self.get_moveset(agent_type)
         killset = self.get_killset(agent_type)
         collisionset = self.get_collisionset(agent_type)
         # If the action is out of bounds of the moveset, return negative reward
         if action >= len(moveset):
+            reward -= 1
             print(f'something went wrong, {action} is not a valid action for {agent_type}') 
-            return position, -1  # Invalid action, negative reward
+            return position, reward  # Invalid action, negative reward
 
         # Calculate the new position based on the action taken
         delta = moveset[action]
@@ -101,6 +105,7 @@ class VipGame(gym.Env):
         if (0 <= new_position[0] < self.grid_height and 0 <= new_position[1] < self.grid_width):  # disallow collision with same team and walls
             
             if (agent_type == ATTACKER and self.grid[new_position] == VIP):
+                reward += 1
                 print("vip killed")
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
@@ -108,7 +113,7 @@ class VipGame(gym.Env):
                 vip_index = self.vip_positions.index(new_position)
                 self.vip_positions[vip_index] = self.dead_cell
                 self.number_of_vip_dead += 1
-                return new_position, 1
+                return new_position, reward
             
             # when a defender and an attacker meet each other, both die
             if (self.grid[new_position] in killset):
@@ -119,32 +124,38 @@ class VipGame(gym.Env):
                 self.number_of_defender_dead += 1
                 print("Attacker and Defender killed each other")
                 if agent_type == ATTACKER:
+                    reward += 0
                     # Move defender to the death cell
                     defender_index = self.defender_positions.index(new_position)
                     self.live_defenders[defender_index] = False
                     self.live_attackers[agent_id] = False
                     self.defender_positions[defender_index] = self.dead_cell
                     # Move attacker to the death cell
-                    return self.dead_cell, 0  # high reward for killing defender
+                    return self.dead_cell, reward
 
                 elif agent_type == DEFENDER:
+                    reward += 0.5
                     # Move attacker to the death cell
                     attacker_index = self.attacker_positions.index(new_position)
                     self.live_defenders[agent_id] = False
                     self.live_attackers[attacker_index] = False
                     self.attacker_positions[attacker_index] = self.dead_cell
                     # Move defender to the death cell
-                    return self.dead_cell, 0.5 # high reward for killing attacker
-                
-                print("something went wrong, neither attacker nor defender were killed")
+                    return self.dead_cell, reward # high reward for killing attacker
+                raise ValueError("something went wrong, neither attacker nor defender were killed")
                 return new_position, 1
             
             if (self.grid[new_position] not in collisionset):
+                if agent_type == ATTACKER:
+                    for vip in self.vip_positions:
+                        reward += self.calculateDistanceReward(new_position, vip)/self.max_timesteps
+                    #print(f'reward for attacker:{reward}')
+
                 self.grid[new_position] = self.grid[position]
                 self.grid[position] = 0
-                return new_position, 0  
+                return new_position, reward
 
-        return position, 0
+        return position, reward
 
     def attacker_move(self, action, agent_id):
         # Update attacker position and get reward for the move
@@ -196,7 +207,6 @@ class VipGame(gym.Env):
             defender_reward = [x + 1 for x in defender_reward]
             attacker_reward = [x - 1 for x in attacker_reward]
             vip_reward = [x + 1 for x in vip_reward]
-            
             
         # Check if the game is over (either the VIP is dead or all attackers are dead)
         if self.number_of_vip_dead == self.number_of_vips:
