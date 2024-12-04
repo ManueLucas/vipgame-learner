@@ -30,23 +30,27 @@ def train_actor_critic(path_to_weights,grid_file_path,n_games,agent_to_train,ran
         "4": 1, # attacker
     }
 
-    # Load grid map
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
-    if randomize_spawn_points:
-        grid_map[grid_map > 1] = 0
-        grid_map = place_agents(grid_map, agents)
-
-    # Initialize environment and agent
-    env = VipGame(grid_map=grid_map)
-    input_dims = [grid_map.size]
     agent = Agent(alpha=0.0001, gamma=0.99, n_actions=8)
+    
 
     # Load pre-trained weights if available
-    if os.path.exists(path_to_weights):
-        agent.load_models(file_path=f"{agent_to_train}_weights.weights.h5")
+    # if os.path.exists(path_to_weights):
+    #     agent.load_models(file_path=f"{agent_to_train}_weights.h5")
 
     scores = []
     for i in range(n_games):
+        # Load grid map
+        if randomize_spawn_points:
+            grid_map[grid_map > 1] = 0
+            grid_map = place_agents(grid_map, agents)
+
+        # Initialize environment and agent
+        env = VipGame(grid_map=grid_map)
+        env.render(env.grid)
+
+        input_dims = [grid_map.size]
+
         observation = env.reset().flatten()
         score = 0
         done = False  # To track if the episode should stop
@@ -89,7 +93,10 @@ def train_actor_critic(path_to_weights,grid_file_path,n_games,agent_to_train,ran
 
         # Save weights periodically
         if (i + 1) % 10 == 0:
-            agent.save_models(file_path=f"{agent_to_train}_weights.weights.h5")
+            agent.save_models(file_path=f"{path_to_weights}/{agent_to_train}_{i+1}_weights.h5")
+            # Plot learning curve
+            x = [j + 1 for j in range(len(scores))]
+            plot_learning_curve(x, scores, f"{path_to_weights}/{agent_to_train}_{i+1}_training.png")
 
         # Log to TensorBoard
         writer.add_scalar('Reward', reward, i)
@@ -98,23 +105,23 @@ def train_actor_critic(path_to_weights,grid_file_path,n_games,agent_to_train,ran
     writer.close()
 
     # Save weights after training
-    agent.save_models(file_path=f"{agent_to_train}_weights.weights.h5")
+    agent.save_models(file_path=f"{path_to_weights}/{agent_to_train}_{i}_weights.h5")
 
     # Plot learning curve
     x = [i + 1 for i in range(len(scores))]
-    plot_learning_curve(x, scores, f"{agent_to_train}_training.png")
+    plot_learning_curve(x, scores, f"{path_to_weights}/{agent_to_train}_training.png")
 
     return scores
 
 
-def trial_actor_critic(path_to_weights, grid_file_path):
+def trial_actor_critic(path_to_weights, grid_file_path, load_model_num):
     grid_map = np.loadtxt(grid_file_path, delimiter=",")
     env = VipGame(grid_map=grid_map)
 
     # Initialize the agent with pre-trained weights
     agent = Agent(alpha=0.0001, gamma=0.99, n_actions=8)
     if os.path.exists(path_to_weights):
-        agent.load_models(file_path=f"actor_critic_weights.weights.h5")
+        agent.load_models(file_path=f"{path_to_weights}/actor_critic_{load_model_num}_weights.h5")
 
     truncated = False
     terminated = False
@@ -152,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument("--random", action="store_true", help="Randomizes spawn points if set to true")
     parser.add_argument("--agent", type=str, default="actor_critic", help="Specify the agent to train")
     parser.add_argument("--epsilon", type=float, default=0.1, help="Epsilon value for trials")
+    parser.add_argument("--trial_number", type=int, help="Episode number you want to run trial on")
     args = parser.parse_args()
 
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -164,7 +172,7 @@ if __name__ == "__main__":
     )
     if args.mode == "train":
         scores = train_actor_critic(
-            path_to_weights=f"{args.agent}_weights.h5",
+            path_to_weights=f"weights/",
             grid_file_path=args.map,
             n_games=args.episodes,
             agent_to_train=args.agent,
@@ -174,6 +182,7 @@ if __name__ == "__main__":
 
     elif args.mode == "trial":
         trial_actor_critic(
-            path_to_weights=f"{args.agent}_weights.h5",
-            grid_file_path=args.map
+            path_to_weights=f"weights/",
+            grid_file_path=args.map,
+            load_model_num=args.trial_number
         )

@@ -48,7 +48,7 @@ class VipGame(gym.Env):
         self.live_defenders = []
         
         self.attacker_defender_action_space = 8
-        self.vip_action_space = 4
+        self.vip_action_space = 8
         
         self.attackerside_collision_set = [WALL, ATTACKER]
         self.defenderside_collision_set = [WALL, DEFENDER, VIP]
@@ -128,7 +128,7 @@ class VipGame(gym.Env):
                     self.live_attackers[agent_id] = False
                     self.defender_positions[defender_index] = self.dead_cell
                     # Move attacker to the death cell
-                    return self.dead_cell, 5  # high reward for killing defender
+                    return self.dead_cell, -10  # high reward for killing defender
 
                 elif agent_type == DEFENDER:
                     # Move attacker to the death cell

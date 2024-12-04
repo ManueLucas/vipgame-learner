@@ -21,10 +21,10 @@ class Agent:
         observation = np.clip(observation, -1, 1)
         state = torch.tensor(np.array(observation), dtype=torch.float32).unsqueeze(0)
 
-        _, probs = self.actor_critic(state)
+        _, action_preferences = self.actor_critic(state)
 
         # Normalize probabilities
-        probs = torch.softmax(probs, dim=-1).detach().numpy()[0]
+        probs = torch.softmax(action_preferences, dim=-1).detach().numpy()[0]
 
         if valid_actions is not None:
             # Mask invalid actions
@@ -34,7 +34,12 @@ class Agent:
 
             if np.sum(probs) == 0:
                 # If all probabilities are zero, fallback to uniform distribution
-                print(f"Warning: All probabilities zero, fallback to uniform.")
+                # print(f"probs: {probs}")
+                # print(f"action preferences: {action_preferences}")
+                # print(self.actor_critic.actor.weight)
+                # print(self.actor_critic.fc1.weight)
+                # print(self.actor_critic.fc2.weight)
+                # print(f"Warning: All probabilities zero, fallback to uniform.")
                 probs[valid_actions] = 1 / len(valid_actions)
             else:
                 # Renormalize probabilities
