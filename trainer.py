@@ -10,6 +10,9 @@ import os
 import argparse
 from utils import str2bool
 import torch
+from torch.utils.tensorboard import SummaryWriter
+import datetime
+
 
 def plot_scores(x, scores, filename, lines=None):
     fig = plt.figure()
@@ -423,6 +426,7 @@ def trainPPO():
             observation_ = fully_visible_state.flatten()
 
             score['attacker'] += np.mean(attacker_reward)
+            writer.add_scalar('Avg Attacker Reward', np.mean(attacker_reward), episode_number)
             # score['defender'] += np.mean(defender_reward)
             # score['vip'] += np.mean(vip_reward)
             done = truncated or terminated
@@ -458,6 +462,9 @@ def trainPPO():
         
         # scores['vip'].append(score['vip'])
         scores['attacker'].append(score['attacker'])
+        writer.add_scalar('Attacker/Score', score['attacker'], episode_number)
+        writer.add_scalar('Attacker/Avg_Score', np.mean(scores['attacker'][-100:]), episode_number)
+
         # scores['defender'].append(score['defender'])
 
 
@@ -465,7 +472,8 @@ def trainPPO():
         # print(f"  VIP: Score {score['vip']:.2f}, Avg Score {np.mean(scores['vip'][-100:]):.2f}")
         print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}")
         # print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}")
-        
+    # close tensor board writer
+    writer.close()
     # for agent_name in ['vip', 'attacker', 'defender']:
     for agent_name in ['attacker']:
         x = [i + 1 for i in range(episode_number)]
@@ -627,6 +635,14 @@ if __name__ == '__main__':
 
 
     if args.mode == 'train':
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        run_name = f"{args.algorithm}_{args.mode}_{current_time}"
+        # log to summary writter for tensorboard
+        writer = SummaryWriter(f"runs/{run_name}")
+        writer.add_text(
+        "hyperparameters",
+        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{k}|{v}|" for k, v in vars(args).items()])),)
+
         if args.algorithm == 'ppo':
             trainPPO()
         else:
