@@ -529,7 +529,7 @@ def trialPPO():
         # print(f"observation type: {observation.dtype}")
         # # env.render(grid_map)
         while not done:
-            
+            # implement polar coordinate featurization
             attacker_actions = []
             defender_actions = []
             vip_actions = []
@@ -542,7 +542,7 @@ def trialPPO():
                     attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
                     attacker_agent_action, attacker_log_prob = attacker_agent.select_action(attacker_state, deterministic=False)
                     attacker_actions.append(attacker_agent_action)
-                    print(f'attacker action: {numToAction[attacker_agent_action]}')
+                    print(f'attacker action: {numToAction[attacker_agent_action]} with probability {attacker_log_prob}')
                     if(attacker_log_prob == 0):
                         print(f'detected very small attacker action probability {attacker_log_prob}')
 
