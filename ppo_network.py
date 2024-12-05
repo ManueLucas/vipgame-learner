@@ -152,6 +152,7 @@ class PPO_discrete():
         #Slice long trajectopy into short trajectory and perform mini-batch PPO update
         optim_iter_num = int(math.ceil(s.shape[0] / self.batch_size))
         actorloss = []
+        criticloss = []
         for _ in range(self.K_epochs):
             #Shuffle the trajectory, Good for training
             perm = np.arange(s.shape[0])
@@ -190,9 +191,10 @@ class PPO_discrete():
                         c_loss += param.pow(2).sum() * self.l2_reg
 
                 self.critic_optimizer.zero_grad()
+                criticloss.append(c_loss.mean().item())
                 c_loss.backward()
                 self.critic_optimizer.step()
-        return np.array(actorloss).mean()
+        return np.array(actorloss).mean(), np.array(criticloss).mean()
 
     def put_data(self, s, a, r, s_next, logprob_a, done, dw, idx):
         self.s_hoder[idx] = s

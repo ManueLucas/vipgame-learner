@@ -447,7 +447,9 @@ def trainPPO():
             total_steps += 1
             
             if traj_length % args.T_horizon == 0:
-                attacker_agent.train()
+                actor_loss, critic_loss = attacker_agent.train()
+                writer.add_scalar('Attacker/Actor Loss', actor_loss, episode_number)
+                writer.add_scalar('Attacker/Critic Loss', critic_loss, episode_number)
                 # defender_agent.train()
                 # vip_agent.train()
                 traj_length = 0
