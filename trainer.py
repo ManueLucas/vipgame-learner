@@ -43,7 +43,7 @@ def train(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
     env = environment.VipGame(grid_map=grid_map)
     input_dims = [grid_map.size]
 
-    n_games = 30
+    n_games = 100
     eps_dec = 1/(n_games * env.max_timesteps)
     print(f"eps_dec: {eps_dec}")
     vip_agent = Agent(gamma=0.99, epsilon=1.0, lr=0.003, input_dims=[grid_map.size], batch_size=64, n_actions=4, eps_dec=eps_dec)
@@ -246,5 +246,5 @@ def trial(path_to_vip_weights, path_to_attacker_weights, path_to_defender_weight
         time.sleep(0.05)  # Wait for 100ms
 
 if __name__ == '__main__':
-    #train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv')
-    trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv',epsilon=0.1)
+    train('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv')
+    # trial('vip_agent_weights.pth', 'attacker_agent_weights.pth', 'defender_agent_weights.pth', 'map_presets/grid.csv',epsilon=0.1)
