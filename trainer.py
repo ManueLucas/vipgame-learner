@@ -369,34 +369,34 @@ def trainPPO():
             vip_log_probs = []
             
 
-            for j in range(env.number_of_attackers):
-                if env.attacker_positions[j] == env.dead_cell:
-                    print("we took an invalid step")
-                    attacker_actions.append(-1)
-                    attacker_log_probs.append(None) 
-                    
-                else:
-                    attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
-                    attacker_agent_action, attacker_log_prob = attacker_agent.select_action(attacker_state, deterministic=False)
-                    attacker_actions.append(attacker_agent_action)
-                    attacker_log_probs.append(attacker_log_prob)
-                    if(attacker_log_prob == 0):
-                        print(f'detected very small attacker action probability {attacker_log_prob}')
-
-
-            # for j in range(env.number_of_defenders):
-            #     if env.defender_positions[j] == env.dead_cell:
+            # for j in range(env.number_of_attackers):
+            #     if env.attacker_positions[j] == env.dead_cell:
             #         print("we took an invalid step")
-            #         defender_actions.append(-1)
-            #         defender_log_probs.append(None)
+            #         attacker_actions.append(-1)
+            #         attacker_log_probs.append(None) 
+                    
+            #     else:
+            #         attacker_state = individual_state(observation, env.attacker_positions[j], env.grid_width)
+            #         attacker_agent_action, attacker_log_prob = attacker_agent.select_action(attacker_state, deterministic=False)
+            #         attacker_actions.append(attacker_agent_action)
+            #         attacker_log_probs.append(attacker_log_prob)
+            #         if(attacker_log_prob == 0):
+            #             print(f'detected very small attacker action probability {attacker_log_prob}')
 
-            #     else:   
-            #         defender_state = individual_state(observation, env.defender_positions[j], env.grid_width)
-            #         defender_agent_action, defender_log_prob = defender_agent.select_action(defender_state, deterministic=False)
-            #         defender_actions.append(defender_agent_action)
-            #         defender_log_probs.append(defender_log_prob)
-            #         if(defender_log_prob == 0):
-            #             print(f'detected very small defender action probability {defender_log_prob}')
+
+            for j in range(env.number_of_defenders):
+                if env.defender_positions[j] == env.dead_cell:
+                    print("we took an invalid step")
+                    defender_actions.append(-1)
+                    defender_log_probs.append(None)
+
+                else:   
+                    defender_state = individual_state(observation, env.defender_positions[j], env.grid_width)
+                    defender_agent_action, defender_log_prob = defender_agent.select_action(defender_state, deterministic=False)
+                    defender_actions.append(defender_agent_action)
+                    defender_log_probs.append(defender_log_prob)
+                    if(defender_log_prob == 0):
+                        print(f'detected very small defender action probability {defender_log_prob}')
 
 
             # for j in range(env.number_of_vips):
@@ -425,19 +425,19 @@ def trainPPO():
             #     print(f'vip_reward: {vip_reward}')
             observation_ = fully_visible_state.flatten()
 
-            score['attacker'] += np.mean(attacker_reward)
-            writer.add_scalar('Avg Attacker Reward', np.mean(attacker_reward), episode_number)
+            score['defender'] += np.mean(defender_reward)
+            writer.add_scalar('Avg defender Reward', np.mean(defender_reward), episode_number)
             # score['defender'] += np.mean(defender_reward)
             # score['vip'] += np.mean(vip_reward)
             done = truncated or terminated
             
-            for k in range(env.number_of_attackers):
-                attacker_position = env.attacker_positions[k]
-                attacker_agent.put_data(observation, actions[0][k], attacker_reward[k], observation_, attacker_log_probs[k], done, terminated, idx = traj_length) #terminate is equivalent to dead-win in the ppo code
-            
             # for k in range(env.number_of_defenders):
             #     defender_position = env.defender_positions[k]
-            #     defender_agent.put_data(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), defender_log_probs[k], done, terminated, idx = traj_length)
+            #     defender_agent.put_data(observation, actions[0][k], defender_reward[k], observation_, defender_log_probs[k], done, terminated, idx = traj_length) #terminate is equivalent to dead-win in the ppo code
+            
+            for k in range(env.number_of_defenders):
+                defender_position = env.defender_positions[k]
+                defender_agent.put_data(individual_state(observation, defender_position, env.grid_width), actions[1][k], defender_reward[k], individual_state(observation_, defender_position, env.grid_width), defender_log_probs[k], done, terminated, idx = traj_length)
             
             # for k in range(env.number_of_vips):
             #     vip_position = env.vip_positions[k]
@@ -447,9 +447,9 @@ def trainPPO():
             total_steps += 1
             
             if traj_length % args.T_horizon == 0:
-                actor_loss, critic_loss = attacker_agent.train()
-                writer.add_scalar('Attacker/Actor Loss', actor_loss, episode_number)
-                writer.add_scalar('Attacker/Critic Loss', critic_loss, episode_number)
+                actor_loss, critic_loss = defender_agent.train()
+                writer.add_scalar('Defender/Actor Loss', actor_loss, episode_number)
+                writer.add_scalar('Defender/Critic Loss', critic_loss, episode_number)
                 # defender_agent.train()
                 # vip_agent.train()
                 traj_length = 0
@@ -463,21 +463,21 @@ def trainPPO():
             observation = observation_
         
         # scores['vip'].append(score['vip'])
-        scores['attacker'].append(score['attacker'])
-        writer.add_scalar('Attacker/Score', score['attacker'], episode_number)
-        writer.add_scalar('Attacker/Avg_Score', np.mean(scores['attacker'][-100:]), episode_number)
+        scores['defender'].append(score['defender'])
+        writer.add_scalar('Defender/Score', score['defender'], episode_number)
+        writer.add_scalar('Defender/Avg_Score', np.mean(scores['defender'][-100:]), episode_number)
 
         # scores['defender'].append(score['defender'])
 
 
         print(f"Episode {episode_number}")
         # print(f"  VIP: Score {score['vip']:.2f}, Avg Score {np.mean(scores['vip'][-100:]):.2f}")
-        print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}")
-        # print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}")
+        # print(f"  Attacker: Score {score['attacker']:.2f}, Avg Score {np.mean(scores['attacker'][-100:]):.2f}")
+        print(f"  Defender: Score {score['defender']:.2f}, Avg Score {np.mean(scores['defender'][-100:]):.2f}")
     # close tensor board writer
     writer.close()
     # for agent_name in ['vip', 'attacker', 'defender']:
-    for agent_name in ['attacker']:
+    for agent_name in ['defender']:
         x = [i + 1 for i in range(episode_number)]
         filename = f'{agent_name}_scores.png'
         plot_scores(x, scores[agent_name], filename)
